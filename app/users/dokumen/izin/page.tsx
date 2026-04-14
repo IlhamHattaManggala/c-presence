@@ -47,8 +47,8 @@ export default function SuratIzinPage() {
       alasan_penjelasan: formData.penjelasan,
       tgl_permohonan: formData.tanggal,
       tgl_mulai_dinas: formData.tanggal,
-      shift_code_awal: formData.kodeDinasSemula,
-      shift_code_akhir: formData.kodeDinasMenjadi,
+      shift_code_awal: userData?.shift_code || null,
+      shift_code_akhir: null,
       kedudukan: userData?.stations?.name || null,
       jabatan: userData?.position || null
     })
