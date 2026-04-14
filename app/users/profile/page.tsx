@@ -13,7 +13,8 @@ export default function UserProfile() {
 
   const [userData, setUserData] = React.useState<any>(null)
   const [editForm, setEditForm] = React.useState<any>({
-    full_name: '', phone_number: '', nik: '', position: '', shift_code: '', station_id: ''
+    full_name: '', phone_number: '', nik: '', position: '', shift_code: '', station_id: '',
+    email: '', password: ''
   })
   const [stations, setStations] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -54,7 +55,9 @@ export default function UserProfile() {
             nik: profile.nik || '',
             position: profile.position || '',
             shift_code: profile.shift_code || '',
-            station_id: profile.station_id || ''
+            station_id: profile.station_id || '',
+            email: profile.email || '',
+            password: ''
           })
         }
       } else {
@@ -77,11 +80,23 @@ export default function UserProfile() {
           nik: editForm.nik,
           position: editForm.position,
           station_id: editForm.station_id || null,
-          shift_code: editForm.shift_code
+          shift_code: editForm.shift_code,
+          email: editForm.email
         })
+        
         .eq('id', userData.id)
-      
+        
       if (error) throw error
+
+      // Update Auth if Email or Password changed
+      if (editForm.email !== userData.email || (editForm.password && editForm.password.trim().length > 0)) {
+        const authUpdates: any = {}
+        if (editForm.email !== userData.email) authUpdates.email = editForm.email
+        if (editForm.password && editForm.password.trim().length > 0) authUpdates.password = editForm.password
+        
+        const { error: authError } = await supabase.auth.updateUser(authUpdates)
+        if (authError) throw authError
+      }
       
       const updatedStation = stations.find(s => s.id === editForm.station_id)
       setUserData({ ...userData, ...editForm, stations: updatedStation || userData.stations })
@@ -345,7 +360,7 @@ export default function UserProfile() {
                 />
               </div>
 
-              <div className="space-y-1.5">
+               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-zinc-700">Nomor Telpon</label>
                 <input 
                   type="tel" 
@@ -353,6 +368,31 @@ export default function UserProfile() {
                   onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})}
                   className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
                 />
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-zinc-50">
+                <p className="text-[10px] font-black text-brand-red uppercase tracking-widest mb-2">Akun Login</p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-zinc-700">Email Baru</label>
+                  <input 
+                    type="email" 
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                    placeholder="Masukkan email baru"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-zinc-700">Password Baru</label>
+                  <input 
+                    type="password" 
+                    value={editForm.password}
+                    onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                    autoComplete="new-password"
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                    placeholder="Kosongkan jika tidak ganti"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">

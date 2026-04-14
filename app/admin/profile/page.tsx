@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { User, Camera, ChevronLeft, X, Save } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { StatusModal } from '@/components/StatusModal'
 
 export default function AdminProfilePage() {
   const router = useRouter()
@@ -12,6 +13,19 @@ export default function AdminProfilePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [adminData, setAdminData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    email: '',
+    nik: '',
+    position: '',
+    password: ''
+  })
+  const [modal, setModal] = useState<{ isOpen: boolean, status: 'success' | 'error' | 'loading', message: string }>({
+    isOpen: false,
+    status: 'loading',
+    message: ''
+  })
 
   useEffect(() => {
     const getAdmin = async () => {
@@ -22,7 +36,17 @@ export default function AdminProfilePage() {
           .select('*')
           .eq('id', user.id)
           .single()
-        setAdminData(profile)
+        
+        if (profile) {
+          setAdminData(profile)
+          setEditForm({
+            full_name: profile.full_name || '',
+            email: profile.email || '',
+            nik: profile.nik || '',
+            position: profile.position || '',
+            password: ''
+          })
+        }
       }
       setLoading(false)
     }
@@ -34,6 +58,45 @@ export default function AdminProfilePage() {
     email: adminData?.email || 'admin@kci.id',
     nik: adminData?.nik || '-',
     unit: adminData?.position || 'System Administrator'
+  }
+
+  const handleSave = async () => {
+    try {
+      setSaveLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Update Auth if Email or Password changed
+      if (editForm.email !== adminData.email || (editForm.password && editForm.password.trim().length > 0)) {
+        const authUpdates: any = {}
+        if (editForm.email !== adminData.email) authUpdates.email = editForm.email
+        if (editForm.password && editForm.password.trim().length > 0) authUpdates.password = editForm.password
+        
+        const { error: authError } = await supabase.auth.updateUser(authUpdates)
+        if (authError) throw authError
+      }
+
+      // Update Database
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({
+          full_name: editForm.full_name,
+          email: editForm.email,
+          nik: editForm.nik,
+          position: editForm.position
+        })
+        .eq('id', user.id)
+
+      if (dbError) throw dbError
+
+      setAdminData({ ...adminData, ...editForm })
+      setIsEditModalOpen(false)
+      setModal({ isOpen: true, status: 'success', message: 'Profil berhasil diperbarui!' })
+    } catch (err: any) {
+      setModal({ isOpen: true, status: 'error', message: 'Gagal menyimpan: ' + err.message })
+    } finally {
+      setSaveLoading(false)
+    }
   }
 
   return (
@@ -136,16 +199,18 @@ export default function AdminProfilePage() {
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Nama Lengkap</label>
                   <input 
                     type="text" 
-                    defaultValue={profileData.nama}
-                    className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
                   />
                </div>
                <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Email Perusahaan</label>
                   <input 
                     type="email" 
-                    defaultValue={profileData.email}
-                    className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
                   />
                </div>
                <div className="grid grid-cols-2 gap-4">
@@ -153,8 +218,9 @@ export default function AdminProfilePage() {
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">ID / NIK</label>
                     <input 
                       type="text" 
-                      defaultValue={profileData.nik}
-                      className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
+                      value={editForm.nik}
+                      onChange={(e) => setEditForm({...editForm, nik: e.target.value})}
+                      className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
                     />
                   </div>
                   <div>
@@ -162,16 +228,23 @@ export default function AdminProfilePage() {
                     <input 
                       type="password" 
                       placeholder="Min. 8 Karakter"
-                      className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
+                      value={editForm.password}
+                      onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                      autoComplete="new-password"
+                      className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition"
                     />
                   </div>
                </div>
                <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-2">Unit Kerja</label>
-                  <select className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition appearance-none">
-                     <option>{profileData.unit}</option>
-                     <option>Announcer Senior</option>
-                     <option>Passenger Service Station Office</option>
+                  <select 
+                    value={editForm.position}
+                    onChange={(e) => setEditForm({...editForm, position: e.target.value})}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-2xl px-5 py-3 text-sm font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition appearance-none"
+                  >
+                     <option value="System Administrator">System Administrator</option>
+                     <option value="Announcer Senior">Announcer Senior</option>
+                     <option value="Passenger Service Station Office">Passenger Service Station Office</option>
                   </select>
                </div>
             </div>
@@ -185,16 +258,24 @@ export default function AdminProfilePage() {
                  Batal
                </button>
                <button 
-                 onClick={() => setIsEditModalOpen(false)}
-                 className="flex-[2] py-3.5 rounded-2xl bg-brand-red text-white font-bold hover:bg-red-700 transition shadow-lg shadow-brand-red/20 flex items-center justify-center space-x-2"
+                 onClick={handleSave}
+                 disabled={saveLoading}
+                 className="flex-[2] py-3.5 rounded-2xl bg-brand-red text-white font-bold hover:bg-red-700 transition shadow-lg shadow-brand-red/20 flex items-center justify-center space-x-2 disabled:opacity-50"
                >
                  <Save size={18} />
-                 <span>Simpan Perubahan</span>
+                 <span>{saveLoading ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
                </button>
             </div>
           </div>
         </div>
       )}
+
+      <StatusModal 
+        isOpen={modal.isOpen}
+        status={modal.status}
+        message={modal.message}
+        onClose={() => setModal({ ...modal, isOpen: false })}
+      />
     </div>
   )
 }
