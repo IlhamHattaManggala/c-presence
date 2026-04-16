@@ -66,14 +66,6 @@ export default function AdminDokumenLanding() {
 
       {/* Content Area */}
       <div className="flex-1 p-6 md:p-10 flex flex-col items-center overflow-y-auto scrollbar-hide">
-        {/* Top Navigation - Satu Baris Horizontal */}
-        <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide mb-10 py-2">
-           <div className="flex flex-nowrap gap-2">
-              <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
-              <button onClick={() => router.push('/admin/dokumen/broadcast')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Broadcast</button>
-              <button onClick={() => router.push('/admin/dokumen/presensi')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
-           </div>
-        </div>
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">

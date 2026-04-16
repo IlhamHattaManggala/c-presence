@@ -5,8 +5,10 @@ import { Database, Plus, Trash2, Edit2, MapPin, Clock, Search } from 'lucide-rea
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { Map, Marker } from 'pigeon-maps'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { deleteUserAction } from '@/app/actions/user-actions'
 
-type TabType = 'STASIUN' | 'SHIFT'
+type TabType = 'STASIUN' | 'SHIFT' | 'USER'
 
 export default function MasterDataPage() {
   const supabase = createClient()
@@ -23,6 +25,7 @@ export default function MasterDataPage() {
   
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchingLocation, setIsSearchingLocation] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: any}>({isOpen: false, id: null})
 
   const handleSearchLocation = async () => {
     if (!searchQuery) return
@@ -35,10 +38,11 @@ export default function MasterDataPage() {
         const lon = parseFloat(result[0].lon)
         setFormData((prev: any) => ({ ...prev, latitude: lat, longitude: lon }))
       } else {
-        alert('Lokasi tidak ditemukan di peta. Coba kata kunci yang lebih spesifik.')
+        setModal({ isOpen: true, status: 'error', message: 'Lokasi tidak ditemukan di peta. Coba kata kunci yang lebih spesifik.' })
       }
     } catch (e) {
       console.error('Search error:', e)
+      setModal({ isOpen: true, status: 'error', message: 'Gagal menghubungi server pencarian lokasi.' })
     } finally {
       setIsSearchingLocation(false)
     }
@@ -50,8 +54,8 @@ export default function MasterDataPage() {
 
   const fetchData = async () => {
     setLoading(true)
-    const table = activeTab === 'STASIUN' ? 'stations' : 'shifts'
-    const orderCol = activeTab === 'STASIUN' ? 'id' : 'code'
+    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
+    const orderCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'full_name'
     const { data: result, error } = await supabase.from(table).select('*').order(orderCol, { ascending: true })
     
     if (error) {
@@ -65,14 +69,30 @@ export default function MasterDataPage() {
     setLoading(false)
   }
 
-  const handleDelete = async (idOrCode: any) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return
-    const table = activeTab === 'STASIUN' ? 'stations' : 'shifts'
-    const pkCol = activeTab === 'STASIUN' ? 'id' : 'code'
-    const { error } = await supabase.from(table).delete().eq(pkCol, idOrCode)
+  const handleDelete = (idOrCode: any) => {
+    setConfirmDelete({ isOpen: true, id: idOrCode })
+  }
+
+  const executeDelete = async () => {
+    if (!confirmDelete.id) return
+    const idToDel = confirmDelete.id
+    setConfirmDelete({ isOpen: false, id: null })
+
+    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
+    const pkCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'id'
     
-    if (error) {
-      setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus: ' + error.message })
+    let errorMsg = ''
+
+    if (activeTab === 'USER') {
+      const res = await deleteUserAction(idToDel as string)
+      if (!res.success) errorMsg = res.error || 'Terjadi kesalahan'
+    } else {
+      const { error } = await supabase.from(table).delete().eq(pkCol, idToDel)
+      if (error) errorMsg = error.message
+    }
+    
+    if (errorMsg) {
+      setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus: ' + errorMsg })
     } else {
       setModal({ isOpen: true, status: 'success', message: 'Data berhasil dihapus!' })
       fetchData()
@@ -83,15 +103,54 @@ export default function MasterDataPage() {
     e.preventDefault()
     setModal({ isOpen: true, status: 'loading', message: 'Menyimpan...' })
     
-    const table = activeTab === 'STASIUN' ? 'stations' : 'shifts'
-    const pkCol = activeTab === 'STASIUN' ? 'id' : 'code'
+    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
+    const pkCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'id'
     let error;
 
+    // Filter out 'password' from payload for DB table operation
+    const payload = { ...formData }
+    if (activeTab === 'USER') {
+       delete payload.password
+    }
+
     if (editingId) {
-      const res = await supabase.from(table).update(formData).eq(pkCol, editingId)
+      const res = await supabase.from(table).update(payload).eq(pkCol, editingId)
       error = res.error
     } else {
-      const res = await supabase.from(table).insert([formData])
+      let finalPayload = [payload]
+      
+      // If adding a new USER, attempt double registration (Auth + DB)
+      if (activeTab === 'USER') {
+         try {
+           // We create a temporary client to avoid disrupting current Admin session
+           const { createClient: createClientJS } = await import('@supabase/supabase-js')
+           const tempSupabase = createClientJS(
+             process.env.NEXT_PUBLIC_SUPABASE_URL!,
+             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+             { auth: { persistSession: false } }
+           )
+
+           const { data: authResult, error: authErr } = await tempSupabase.auth.signUp({
+              email: formData.email,
+              password: formData.password || 'password123'
+           })
+
+           if (authErr) {
+              setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Auth: ' + authErr.message })
+              return
+           }
+
+           if (authResult.user) {
+              // Ensure the DB profile uses the same ID as the Auth user
+              payload.id = authResult.user.id
+              finalPayload = [payload]
+           }
+         } catch (e) {
+           console.error('Registration bypass error:', e)
+         }
+      }
+
+      const res = await supabase.from(table).insert(finalPayload)
       error = res.error
     }
 
@@ -106,13 +165,19 @@ export default function MasterDataPage() {
 
   const openAddForm = () => {
     setEditingId(null)
-    setFormData(activeTab === 'STASIUN' ? { name: '', latitude: -6.4025, longitude: 106.8197 } : { code: '', description: '', start_time: '', end_time: '' })
+    if (activeTab === 'STASIUN') {
+       setFormData({ name: '', latitude: -6.4025, longitude: 106.8197 })
+    } else if (activeTab === 'SHIFT') {
+       setFormData({ code: '', description: '', start_time: '', end_time: '' })
+    } else {
+       setFormData({ nik: '', full_name: '', email: '', role: 'user', position: '', password: 'password123' })
+    }
     setSearchQuery('')
     setIsFormOpen(true)
   }
 
   const openEditForm = (item: any) => {
-    const pkVal = activeTab === 'STASIUN' ? item.id : item.code
+    const pkVal = activeTab === 'STASIUN' ? item.id : activeTab === 'SHIFT' ? item.code : item.id
     setEditingId(pkVal)
     setFormData(item)
     setSearchQuery('')
@@ -149,14 +214,14 @@ export default function MasterDataPage() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-zinc-50 to-transparent -z-10 rounded-bl-full opacity-50"></div>
                 
                 <div className="flex items-start justify-between mb-4">
-                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activeTab === 'STASIUN' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
-                      {activeTab === 'STASIUN' ? <MapPin size={24} /> : <Clock size={24} />}
+                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activeTab === 'STASIUN' ? 'bg-blue-50 text-blue-600' : activeTab === 'SHIFT' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
+                      {activeTab === 'STASIUN' ? <MapPin size={24} /> : activeTab === 'SHIFT' ? <Clock size={24} /> : <Database size={24} />}
                    </div>
                    <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEditForm(item)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-brand-red/10 hover:text-brand-red transition-colors">
                          <Edit2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(activeTab === 'STASIUN' ? item.id : item.code)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+                      <button onClick={() => handleDelete(activeTab === 'STASIUN' ? item.id : activeTab === 'SHIFT' ? item.code : item.id)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
                          <Trash2 size={16} />
                       </button>
                    </div>
@@ -172,18 +237,39 @@ export default function MasterDataPage() {
                          </span>
                       </div>
                    </div>
-                ) : (
-                   <div>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="px-3 py-1 bg-zinc-800 text-white rounded-lg text-xs font-black">{item.code}</span>
-                        <h3 className="text-lg font-black text-zinc-800">{item.description || '-'}</h3>
-                      </div>
-                      <p className="text-sm font-bold text-zinc-500 flex items-center space-x-2 pt-2 border-t border-zinc-100 mt-4">
-                         <Clock size={14} />
-                         <span>{item.start_time ? String(item.start_time).substring(0,5) : '00:00'} - {item.end_time ? String(item.end_time).substring(0,5) : '00:00'}</span>
-                      </p>
-                   </div>
-                )}
+                ) : activeTab === 'SHIFT' ? (
+                    <div>
+                       <div className="flex items-center space-x-2 mb-2">
+                         <span className="px-3 py-1 bg-zinc-800 text-white rounded-lg text-xs font-black">{item.code}</span>
+                         <h3 className="text-lg font-black text-zinc-800">{item.description || '-'}</h3>
+                       </div>
+                       <p className="text-sm font-bold text-zinc-500 flex items-center space-x-2 pt-2 border-t border-zinc-100 mt-4">
+                          <Clock size={14} />
+                          <span>{item.start_time ? String(item.start_time).substring(0,5) : '00:00'} - {item.end_time ? String(item.end_time).substring(0,5) : '00:00'}</span>
+                       </p>
+                    </div>
+                 ) : (
+                    <div>
+                       <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-xl font-black text-zinc-800 truncate pr-2">{item.full_name}</h3>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${item.role === 'admin' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                             {item.role}
+                          </span>
+                       </div>
+                       <div className="space-y-1.5 mt-4 pt-4 border-t border-zinc-50">
+                          <p className="text-xs font-bold text-zinc-500 flex items-center space-x-2">
+                             <Database size={12} className="text-zinc-300" />
+                             <span className="text-zinc-400">NIK:</span>
+                             <span className="text-zinc-800">{item.nik || '-'}</span>
+                          </p>
+                          <p className="text-xs font-bold text-zinc-500 flex items-center space-x-2">
+                             <Search size={12} className="text-zinc-300" />
+                             <span className="text-zinc-400">Email:</span>
+                             <span className="text-zinc-800 truncate">{item.email}</span>
+                          </p>
+                       </div>
+                    </div>
+                 )}
              </div>
           ))}
        </div>
@@ -231,6 +317,12 @@ export default function MasterDataPage() {
                 >
                   Data Shift
                 </button>
+                <button 
+                  onClick={() => setActiveTab('USER')}
+                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'USER' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  Data Pengguna
+                </button>
              </div>
 
              <div className="flex w-full md:w-auto space-x-2">
@@ -253,9 +345,9 @@ export default function MasterDataPage() {
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsFormOpen(false)}></div>
-          <div className="bg-white rounded-[32px] p-8 w-full max-w-md relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+          <div className={`bg-white rounded-[32px] p-8 w-full ${activeTab === 'USER' ? 'max-w-2xl' : 'max-w-md'} relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]`}>
              <h3 className="text-2xl font-black text-zinc-800 mb-6">
-               {editingId ? 'Edit' : 'Tambah'} Data {activeTab === 'STASIUN' ? 'Stasiun' : 'Kode Dinas'}
+               {editingId ? 'Edit' : 'Tambah'} Data {activeTab === 'STASIUN' ? 'Stasiun' : activeTab === 'SHIFT' ? 'Kode Dinas' : 'Pengguna'}
              </h3>
              <form onSubmit={handleSave} className="space-y-5">
                 {activeTab === 'STASIUN' ? (
@@ -320,7 +412,7 @@ export default function MasterDataPage() {
                        </div>
                      </div>
                    </>
-                ) : (
+                ) : activeTab === 'SHIFT' ? (
                    <>
                      <div className="space-y-2">
                        <label className="text-sm font-bold text-zinc-700">Kode Shift</label>
@@ -364,6 +456,76 @@ export default function MasterDataPage() {
                         </div>
                      </div>
                    </>
+                ) : (
+                   <div className="grid grid-cols-2 gap-6">
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">NIK (Nomor Induk Pegawai)</label>
+                       <input 
+                         type="text" 
+                         value={formData.nik || ''}
+                         onChange={e => setFormData({...formData, nik: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                         placeholder="Contoh: 12345678"
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">Role Akses</label>
+                       <select 
+                         value={formData.role || 'user'}
+                         onChange={e => setFormData({...formData, role: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium bg-white"
+                       >
+                          <option value="user">User / Pegawai</option>
+                          <option value="admin">Administrator</option>
+                       </select>
+                     </div>
+                     
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">Nama Lengkap</label>
+                       <input 
+                         required
+                         type="text" 
+                         value={formData.full_name || ''}
+                         onChange={e => setFormData({...formData, full_name: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                         placeholder="Masukkan Nama Lengkap"
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">Email Login</label>
+                       <input 
+                         required
+                         type="email" 
+                         value={formData.email || ''}
+                         onChange={e => setFormData({...formData, email: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                         placeholder="user@example.com"
+                       />
+                     </div>
+                     
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">Jabatan / Posisi</label>
+                       <input 
+                         type="text" 
+                         value={formData.position || ''}
+                         onChange={e => setFormData({...formData, position: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                         placeholder="Contoh: Passenger Service"
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-sm font-bold text-zinc-700">Password</label>
+                       <input 
+                         required={!editingId}
+                         type="text" 
+                         value={formData.password || ''}
+                         onChange={e => setFormData({...formData, password: e.target.value})}
+                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                         placeholder="Set Password Login"
+                       />
+                       <p className="text-[10px] text-zinc-400">Gunakan untuk pendaftaran akun baru.</p>
+                     </div>
+                   </div>
                 )}
 
                 <div className="flex space-x-3 pt-4">
@@ -380,6 +542,14 @@ export default function MasterDataPage() {
         status={modal.status}
         message={modal.message}
         onClose={() => setModal({ ...modal, isOpen: false })}
+      />
+
+      <ConfirmModal 
+        isOpen={confirmDelete.isOpen}
+        title="Hapus Data"
+        message="Apakah Anda yakin ingin menghapus data ini? Aksi ini tidak dapat dibatalkan."
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmDelete({ isOpen: false, id: null })}
       />
     </div>
   )

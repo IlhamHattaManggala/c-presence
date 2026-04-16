@@ -134,7 +134,13 @@ export default function AdminLayout({
               
               <div className="flex flex-col space-y-3">
                 <button 
-                  onClick={() => router.push('/admin/login')}
+                  onClick={async () => {
+                    const { createClient } = await import('@/lib/supabase/client')
+                    const supabase = createClient()
+                    await supabase.auth.signOut()
+                    setIsLogoutModalOpen(false)
+                    router.push('/admin/login')
+                  }}
                   className="w-full bg-[#E62020] text-white py-3.5 rounded-xl font-bold shadow-lg shadow-red-500/20 hover:bg-red-700 transition-all active:scale-95"
                 >
                   Ya, Keluar Sekarang

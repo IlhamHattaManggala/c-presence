@@ -18,6 +18,10 @@ export default function AdminRegisterPage() {
     message: ''
   })
 
+  React.useEffect(() => {
+    router.replace('/admin/login')
+  }, [router])
+
   const [formData, setFormData] = React.useState({
     nama: '',
     email: '',

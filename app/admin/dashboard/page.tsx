@@ -11,6 +11,7 @@ export default function AdminDashboardPage() {
   const [presenceData, setPresenceData] = useState<any[]>([])
   const [stats, setStats] = useState({ hadir: 0, telat: 0, totalPegawai: 0 })
   const [loading, setLoading] = useState(true)
+  const [calendarDate, setCalendarDate] = useState(new Date())
 
   useEffect(() => {
     fetchDashboardData()
@@ -48,6 +49,47 @@ export default function AdminDashboardPage() {
      if (status === 'Hadir') return 'bg-[#38E54D] text-white'
      if (status === 'Telat') return 'bg-[#B20600] text-white'
      return 'bg-zinc-200 text-zinc-600'
+  }
+
+  const generateDays = () => {
+    const year = calendarDate.getFullYear()
+    const month = calendarDate.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const daysInPrevMonth = new Date(year, month, 0).getDate()
+    
+    const days = []
+    
+    // Previous month padding
+    for (let i = firstDay - 1; i >= 0; i--) {
+      days.push({ day: daysInPrevMonth - i, currentMonth: false })
+    }
+    
+    // Current month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({ day: i, currentMonth: true })
+    }
+    
+    // Next month padding
+    const remaining = 42 - days.length
+    for (let i = 1; i <= remaining; i++) {
+      days.push({ day: i, currentMonth: false })
+    }
+    
+    return days
+  }
+
+  const isToday = (day: number, isCurrentMonth: boolean) => {
+    const today = new Date()
+    return isCurrentMonth && 
+           day === today.getDate() && 
+           calendarDate.getMonth() === today.getMonth() && 
+           calendarDate.getFullYear() === today.getFullYear()
+  }
+
+  const changeMonth = (offset: number) => {
+    const newDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + offset, 1)
+    setCalendarDate(newDate)
   }
 
   return (
@@ -137,28 +179,33 @@ export default function AdminDashboardPage() {
             <div className="lg:col-span-5 flex flex-col space-y-10">
                
                {/* Calendar Card */}
-               <div className="bg-white border border-brand-red/20 rounded-3xl p-6 shadow-xl shadow-brand-red/5">
-                  <div className="flex justify-between items-center mb-6">
-                     <button className="p-1 text-zinc-400 hover:text-zinc-800"><ChevronLeft size={20} /></button>
-                     <h4 className="font-bold text-zinc-800 text-sm">March 25</h4>
-                     <button className="p-1 text-zinc-400 hover:text-zinc-800"><ChevronRight size={20} /></button>
-                  </div>
-                  <div className="grid grid-cols-7 gap-1 text-center mb-4">
-                     {['Su','Mo','Tu','We','Th','Fr','Sa'].map((day) => (
-                       <span key={day} className="text-xs font-bold text-zinc-400">{day}</span>
-                     ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center text-sm font-bold text-zinc-700">
-                     <span className="text-zinc-200">26</span><span className="text-zinc-200">27</span><span className="text-zinc-200">28</span>
-                     <span>1</span><span>2</span><span>3</span><span>4</span>
-                     <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span>
-                     <span>12</span><span>13</span><span>14</span>
-                     <span className="bg-[#E62020] text-white w-8 h-8 rounded-lg flex items-center justify-center mx-auto shadow-md">15</span>
-                     <span>16</span><span>17</span><span>18</span>
-                     <span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span>
-                     <span>26</span><span>27</span><span>28</span><span>29</span><span>30</span><span>31</span><span className="text-zinc-200">1</span>
-                  </div>
-               </div>
+                <div className="bg-white border border-brand-red/20 rounded-3xl p-6 shadow-xl shadow-brand-red/5">
+                   <div className="flex justify-between items-center mb-6">
+                      <button onClick={() => changeMonth(-1)} className="p-1 text-zinc-400 hover:text-zinc-800"><ChevronLeft size={20} /></button>
+                      <h4 className="font-bold text-zinc-800 text-sm">
+                        {calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                      </h4>
+                      <button onClick={() => changeMonth(1)} className="p-1 text-zinc-400 hover:text-zinc-800"><ChevronRight size={20} /></button>
+                   </div>
+                   <div className="grid grid-cols-7 gap-1 text-center mb-4">
+                      {['Su','Mo','Tu','We','Th','Fr','Sa'].map((day) => (
+                        <span key={day} className="text-xs font-bold text-zinc-400">{day}</span>
+                      ))}
+                   </div>
+                   <div className="grid grid-cols-7 gap-y-3 gap-x-1 text-center text-sm font-bold text-zinc-700">
+                      {generateDays().map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-center p-0.5">
+                           <span className={`
+                              w-8 h-8 flex items-center justify-center rounded-lg transition-all
+                              ${!item.currentMonth ? 'text-zinc-200' : 'text-zinc-700'}
+                              ${isToday(item.day, item.currentMonth) ? 'bg-[#E62020] text-white shadow-md' : ''}
+                           `}>
+                              {item.day}
+                           </span>
+                        </div>
+                      ))}
+                   </div>
+                </div>
 
                {/* Statistik Kehadiran */}
                <div>

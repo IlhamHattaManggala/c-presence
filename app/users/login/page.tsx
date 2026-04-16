@@ -33,6 +33,20 @@ export default function UserLoginPage() {
     if (error) {
       setModal({ isOpen: true, status: 'error', message: 'Login Gagal: ' + error.message })
     } else {
+      // Check role
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', userData.user.id)
+          .single()
+
+        if (profile?.role === 'admin') {
+          router.push('/admin/dashboard')
+          return
+        }
+      }
       router.push('/users/dashboard')
     }
     setLoading(false)

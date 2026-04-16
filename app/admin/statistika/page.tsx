@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 export default function StatistikaPage() {
   const supabase = createClient()
   const [stats, setStats] = useState({ hadir: 0, telat: 0, tidakHadir: 0, totalPegawai: 0 })
+  const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,25 +23,43 @@ export default function StatistikaPage() {
       .select('*', { count: 'exact', head: true })
       .eq('role', 'user')
 
-    // Hadir (Termasuk Telat)
-    const d = new Date()
-    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const { data: attendanceToday } = await supabase
+    // Fetch All Attendance
+    const { data: allAttendance, error } = await supabase
       .from('attendance')
-      .select('status')
-      .eq('date', today)
+      .select('*')
 
-    const hadir = attendanceToday?.filter(a => a.status === 'Hadir').length || 0
-    const telat = attendanceToday?.filter(a => a.status === 'Telat').length || 0
-    const totalHadir = hadir + telat
-    const tidakHadir = (userCount || 0) - totalHadir
+    if (error) {
+       console.error('Error fetching attendance:', error)
+       setLoading(false)
+       return
+    }
+
+    const hadirCount = allAttendance?.filter(a => a.status === 'Hadir').length || 0
+    const telatCount = allAttendance?.filter(a => a.status === 'Telat').length || 0
+    const tidakHadirCount = allAttendance?.filter(a => a.status === 'Tidak Hadir' || a.status === 'Alfa').length || 0
 
     setStats({ 
-      hadir, 
-      telat, 
-      tidakHadir: tidakHadir > 0 ? tidakHadir : 0, 
+      hadir: hadirCount, 
+      telat: telatCount, 
+      tidakHadir: tidakHadirCount, 
       totalPegawai: userCount || 0 
     })
+
+    // Process Monthly Data for Line Chart
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+    const grouped = months.map((m, i) => {
+       const monthAttendance = allAttendance?.filter(a => {
+          const date = new Date(a.date)
+          return date.getMonth() === i
+       }) || []
+       return {
+          month: m,
+          hadir: monthAttendance.filter(a => a.status === 'Hadir').length,
+          telat: monthAttendance.filter(a => a.status === 'Telat').length
+       }
+    })
+    setMonthlyData(grouped)
+    
     setLoading(false)
   }
 
@@ -138,12 +157,12 @@ export default function StatistikaPage() {
                             }} 
                           />
                        </svg>
-                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-base md:text-lg font-black text-zinc-800 leading-none">
-                            {stats.hadir + stats.telat}/{stats.totalPegawai}
-                          </span>
-                          <span className="text-[9px] md:text-[10px] font-bold text-zinc-400 uppercase">Total<br/>Presence</span>
-                       </div>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                           <span className="text-base md:text-lg font-black text-zinc-800 leading-none">
+                             {stats.hadir + stats.telat + stats.tidakHadir}
+                           </span>
+                           <span className="text-[9px] md:text-[10px] font-bold text-zinc-400 uppercase">Total<br/>Records</span>
+                        </div>
                     </div>
 
                     {/* Legend */}
@@ -178,33 +197,35 @@ export default function StatistikaPage() {
                 <h3 className="text-brand-red font-black text-lg mb-6">Statistik Stakat</h3>
                 
                 {/* Line Chart SVG Mockup */}
-                <div className="flex-1 w-full min-h-[250px] relative mt-4">
-                   <svg viewBox="0 0 400 200" className="w-full h-full">
-                      {/* Grid Lines */}
-                      <line x1="20" y1="180" x2="380" y2="180" stroke="#f1f1f1" strokeWidth="1" />
-                      
-                      {/* Red/Upper Line */}
-                      <path 
-                        d="M 20 100 Q 60 40 100 80 T 180 60 T 260 30 T 340 90 T 380 120" 
-                        fill="transparent" 
-                        stroke="#B71C1C" 
-                        strokeWidth="2" 
-                      />
-                      {/* Green/Lower Line */}
-                      <path 
-                        d="M 20 150 Q 60 110 100 130 T 180 140 T 260 110 T 340 140 T 380 160" 
-                        fill="transparent" 
-                        stroke="#4CAF50" 
-                        strokeWidth="2" 
-                      />
+                 <div className="flex-1 w-full min-h-[250px] relative mt-4">
+                    <svg viewBox="0 0 400 200" className="w-full h-full">
+                       {/* Grid Lines */}
+                       {[0, 50, 100, 150].map(y => (
+                         <line key={y} x1="20" y1={180 - y} x2="380" y2={180 - y} stroke="#f8f8f8" strokeWidth="1" />
+                       ))}
+                       <line x1="20" y1="180" x2="380" y2="180" stroke="#f1f1f1" strokeWidth="1" />
+                       
+                       {/* Red/Upper Line (Telat) */}
+                       <polyline 
+                         points={monthlyData.map((d, i) => `${40 + i * 30},${180 - (Math.min(d.telat * 10, 150))}`).join(' ')}
+                         fill="transparent" 
+                         stroke="#B71C1C" 
+                         strokeWidth="2" 
+                       />
+                       {/* Green/Lower Line (Hadir) */}
+                       <polyline 
+                         points={monthlyData.map((d, i) => `${40 + i * 30},${180 - (Math.min(d.hadir * 10, 150))}`).join(' ')}
+                         fill="transparent" 
+                         stroke="#4CAF50" 
+                         strokeWidth="2" 
+                       />
 
-                      {/* X-Axis Labels */}
-                      <text x="60" y="195" fill="#999" fontSize="10" fontWeight="bold">Jan</text>
-                      <text x="140" y="195" fill="#999" fontSize="10" fontWeight="bold">Feb</text>
-                      <text x="220" y="195" fill="#999" fontSize="10" fontWeight="bold">Mar</text>
-                      <text x="300" y="195" fill="#999" fontSize="10" fontWeight="bold">Apr</text>
-                   </svg>
-                </div>
+                       {/* X-Axis Labels */}
+                       {monthlyData.map((d, i) => (
+                         <text key={i} x={40 + i * 30} y="195" fill="#999" fontSize="8" fontWeight="bold" textAnchor="middle">{d.month}</text>
+                       ))}
+                    </svg>
+                 </div>
              </div>
 
           </div>

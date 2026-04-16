@@ -20,6 +20,7 @@ export default function AdminLoginPage() {
     message: ''
   })
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -44,8 +45,7 @@ export default function AdminLoginPage() {
       if (profile?.role === 'admin') {
         router.push('/admin/dashboard')
       } else {
-        setModal({ isOpen: true, status: 'error', message: 'Akses Ditolak: Anda bukan administrator.' })
-        await supabase.auth.signOut()
+        router.push('/users/dashboard')
       }
     }
     setLoading(false)
@@ -122,9 +122,9 @@ export default function AdminLoginPage() {
               </button>
             </div>
 
-            <p className="text-center text-lg text-black mt-12">
-              Belum punya akun admin? <Link href="/admin/register" className="text-blue-600 font-semibold hover:underline">Daftar Admin</Link>
-            </p>
+             <p className="text-center text-sm font-medium text-zinc-400 mt-12 italic">
+               Registrasi administrator hanya dapat dilakukan oleh sesama admin melalui panel Master Data.
+             </p>
           </form>
         </div>
         <StatusModal 

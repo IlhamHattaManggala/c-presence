@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { FileText, Plus, Search, Edit3, Eye, Trash2, X, Download, FileSpreadsheet, ChevronRight, Send, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { bulkImportEmployees } from '@/app/actions/user-actions'
 import * as XLSX from 'xlsx'
 
 export default function PendaftaranPegawaiPage() {
@@ -14,15 +16,29 @@ export default function PendaftaranPegawaiPage() {
   const [isSopModalOpen, setIsSopModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'DATA' | 'RIWAYAT'>('DATA')
   const [employees, setEmployees] = useState<any[]>([])
+  const [stations, setStations] = useState<any[]>([])
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
+  const [editFormData, setEditFormData] = useState<any>({
+    nik: '', full_name: '', position: '', station_id: '', shift_code: '', note: ''
+  })
+  const [logs, setLogs] = useState<any[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
   })
+  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null})
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchEmployees()
+    fetchStations()
   }, [])
+
+  const fetchStations = async () => {
+    const { data } = await supabase.from('stations').select('id, name').order('name')
+    if (data) setStations(data)
+  }
 
   const fetchEmployees = async () => {
     setLoading(true)
@@ -40,17 +56,125 @@ export default function PendaftaranPegawaiPage() {
     setLoading(false)
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus pegawai ini?')) {
-      setModal({ isOpen: true, status: 'loading', message: 'Menghapus data pegawai...' })
-      const { error } = await supabase.from('users').delete().eq('id', id)
-      if (error) {
-        setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus: ' + error.message })
-      } else {
-        setModal({ isOpen: true, status: 'success', message: 'Pegawai berhasil dihapus' })
-        fetchEmployees()
-      }
+  const handleDelete = (id: string) => {
+    setConfirmDelete({ isOpen: true, id })
+  }
+
+  const executeDelete = async () => {
+    if (!confirmDelete.id) return
+    const idToDel = confirmDelete.id
+    setConfirmDelete({ isOpen: false, id: null })
+
+    setModal({ isOpen: true, status: 'loading', message: 'Menghapus data pegawai...' })
+    const { error } = await supabase.from('users').delete().eq('id', idToDel)
+    if (error) {
+      setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus: ' + error.message })
+    } else {
+      setModal({ isOpen: true, status: 'success', message: 'Pegawai berhasil dihapus' })
+      fetchEmployees()
     }
+  }
+
+  const handleEditClick = (employee: any) => {
+    setSelectedEmployee(employee)
+    setEditFormData({
+      nik: employee.nik || '',
+      full_name: employee.full_name || '',
+      position: employee.position || '',
+      station_id: employee.station_id || '',
+      shift_code: employee.shift_code || '',
+      note: ''
+    })
+    setActiveTab('DATA')
+    setIsEditModalOpen(true)
+    fetchLogs(employee.id)
+  }
+
+  const fetchLogs = async (employeeId: string) => {
+    setLoadingLogs(true)
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('target_id', employeeId)
+      .order('created_at', { ascending: false })
+    
+    if (data) setLogs(data)
+    setLoadingLogs(false)
+  }
+
+  const handleClearHistory = async () => {
+    if (!selectedEmployee) return
+    if (!window.confirm("Yakin ingin membersihkan riwayat perubahan pegawai ini?")) return
+    
+    const { error } = await supabase
+       .from('audit_logs')
+       .delete()
+       .eq('target_id', selectedEmployee.id)
+       
+    if (!error) {
+       fetchLogs(selectedEmployee.id)
+    } else {
+       console.error("Gagal membersihkan riwayat", error)
+    }
+  }
+
+  const submitEdit = async () => {
+    if (!selectedEmployee) return
+    
+    setModal({ isOpen: true, status: 'loading', message: 'Menyimpan perubahan...' })
+    setIsEditModalOpen(false)
+
+    const updateData = {
+      nik: editFormData.nik,
+      full_name: editFormData.full_name,
+      position: editFormData.position,
+      station_id: editFormData.station_id || null,
+      shift_code: editFormData.shift_code
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', selectedEmployee.id)
+
+    if (error) {
+      setModal({ isOpen: true, status: 'error', message: 'Gagal memperbarui data: ' + error.message })
+    } else {
+      // Create Audit Log
+      const changes: string[] = []
+      if (selectedEmployee.nik !== editFormData.nik) changes.push(`NIK: ${selectedEmployee.nik} -> ${editFormData.nik}`)
+      if (selectedEmployee.full_name !== editFormData.full_name) changes.push(`Nama: ${selectedEmployee.full_name} -> ${editFormData.full_name}`)
+      if (selectedEmployee.position !== editFormData.position) changes.push(`Posisi/Jabatan: ${selectedEmployee.position} -> ${editFormData.position}`)
+      if (selectedEmployee.shift_code !== editFormData.shift_code) changes.push(`Kode Dinas: ${selectedEmployee.shift_code || '-'} -> ${editFormData.shift_code || '-'}`)
+      if (selectedEmployee.station_id !== editFormData.station_id) {
+         const oldStation = stations.find(s => s.id === selectedEmployee.station_id)?.name || '-'
+         const newStation = stations.find(s => s.id === editFormData.station_id)?.name || '-'
+         changes.push(`Stasiun: ${oldStation} -> ${newStation}`)
+      }
+      if (editFormData.note && editFormData.note.trim() !== '') {
+         changes.push(`Catatan: ${editFormData.note.trim()}`)
+      }
+
+      const { data: userData } = await supabase.auth.getUser()
+      if (changes.length > 0 && userData?.user?.id) {
+        await supabase.from('audit_logs').insert([{
+           actor_id: userData.user.id,
+           target_id: selectedEmployee.id,
+           action: 'update_employee',
+           description: changes.join('\n')
+        }])
+      }
+
+      setModal({ isOpen: true, status: 'success', message: 'Data pegawai berhasil diperbarui!' })
+      fetchEmployees()
+    }
+  }
+
+  const handleSendInvite = (employee: any) => {
+    const phoneNumber = employee.phone_number?.replace(/\D/g, '') || ''
+    const message = `Halo ${employee.full_name},\n\nAkun C-Presence kamu telah didaftarkan. Silakan login menggunakan:\nEmail: ${employee.email}\nPassword: (Gunakan password yang sudah ditentukan admin)\n\nTerima kasih.`
+    const waUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
+    window.open(waUrl, '_blank')
   }
 
   const handleDownloadTemplate = () => {
@@ -109,15 +233,26 @@ export default function PendaftaranPegawaiPage() {
            }
         })
 
-        // 3. Masukkan ke Database
-        const { error } = await supabase.from('users').insert(mappedData)
-
-        if (error) {
-           console.error('Insert error:', error)
-           throw new Error(error.message)
+        // 3. Masukkan via Server Action (Auth + DB)
+        const res = await bulkImportEmployees(mappedData)
+        
+        if (!res.success) {
+           throw new Error(res.error || 'Terjadi kesalahan sistem')
         }
 
-        setModal({ isOpen: true, status: 'success', message: `Berhasil menambahkan ${mappedData.length} pegawai dari Excel!` })
+        // Narrowing type for TypeScript
+        if ('totalSuccess' in res) {
+           if (res.failed > 0) {
+              setModal({ 
+                isOpen: true, 
+                status: 'error', 
+                message: `Proses selesai dengan beberapa error:\nBerhasil: ${res.totalSuccess}\nGagal: ${res.failed}\n\nDetail: ${res.errors.slice(0, 3).join(', ')}${res.errors.length > 3 ? '...' : ''}` 
+              })
+           } else {
+              setModal({ isOpen: true, status: 'success', message: `Berhasil mendaftarkan ${res.totalSuccess} pegawai baru!` })
+           }
+        }
+        
         fetchEmployees()
         
         // Reset input file
@@ -260,9 +395,9 @@ export default function PendaftaranPegawaiPage() {
                                   <td className="px-4 py-4 text-center text-sm font-bold">{row.shift_code || '-'}</td>
                                   <td className="px-2 py-4">
                                      <div className="flex items-center justify-center space-x-4">
-                                        <button onClick={() => { setIsEditModalOpen(true); }} className="text-orange-400 hover:scale-110 transition"><Edit3 size={18}/></button>
-                                        <button onClick={() => handleDelete(row.id)} className="text-[#8B0000] hover:scale-110 transition"><Trash2 size={18} /></button>
-                                        <button className="text-[#8B0000] hover:scale-110 transition"><Send size={16} className="rotate-[-10deg]" /></button>
+                                        <button onClick={() => handleEditClick(row)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={18}/></button>
+                                        
+                                        <button onClick={() => handleSendInvite(row)} className="text-[#8B0000] hover:scale-110 transition"><Send size={16} className="rotate-[-10deg]" /></button>
                                      </div>
                                   </td>
                                </tr>
@@ -294,8 +429,8 @@ export default function PendaftaranPegawaiPage() {
                                <p className="text-brand-red font-bold text-[11px] uppercase">{row.position}</p>
                             </div>
                             <div className="flex items-center space-x-2">
-                               <button onClick={() => setIsEditModalOpen(true)} className="p-2 bg-orange-50 text-orange-500 rounded-lg"><Edit3 size={16}/></button>
-                               <button onClick={() => handleDelete(row.id)} className="p-2 bg-red-50 text-[#B71C1C] rounded-lg"><Trash2 size={16}/></button>
+                               <button onClick={() => handleEditClick(row)} className="p-2 bg-orange-50 text-orange-500 rounded-lg"><Edit3 size={16}/></button>
+                               
                             </div>
                          </div>
                          
@@ -313,7 +448,10 @@ export default function PendaftaranPegawaiPage() {
                                <p className="text-xs font-black text-brand-red uppercase">{row.shift_code || '-'}</p>
                             </div>
                             <div className="flex justify-end items-end">
-                               <button className="flex items-center space-x-1.5 text-brand-red font-bold text-[10px] bg-red-50 px-3 py-1.5 rounded-full">
+                               <button 
+                                 onClick={() => handleSendInvite(row)}
+                                 className="flex items-center space-x-1.5 text-brand-red font-bold text-[10px] bg-red-50 px-3 py-1.5 rounded-full"
+                               >
                                   <Send size={10} className="rotate-[-10deg]"/>
                                   <span>KIRIM</span>
                                </button>
@@ -360,61 +498,56 @@ export default function PendaftaranPegawaiPage() {
             <div className="overflow-y-auto max-h-[75vh] scrollbar-hide py-2">
                {activeTab === 'DATA' && (
                  <div className="space-y-8">
-                    <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                        {/* Row 1 */}
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">ID</label>
-                          <input type="text" defaultValue="549500453" className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-zinc-50/10" />
+                          <label className="text-sm font-extrabold text-zinc-800">ID / UUID Database</label>
+                          <input type="text" value={selectedEmployee?.id || ''} disabled className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm font-bold text-zinc-500 bg-zinc-100 cursor-not-allowed focus:outline-none" />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">NIK</label>
-                          <input type="text" defaultValue="549500453" className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-zinc-50/10" />
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Nama</label>
-                          <select className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-white">
-                             <option>Achmad Fauzi</option>
-                          </select>
+                          <label className="text-sm font-extrabold text-zinc-800">NIK (Nomor Induk Karyawan)</label>
+                          <input type="text" value={editFormData.nik || ''} onChange={e => setEditFormData({...editFormData, nik: e.target.value})} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white" placeholder="Masukkan NIK" />
                        </div>
 
                        {/* Row 2 */}
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Posisi</label>
-                          <select className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-white">
-                             <option>Passenger Service</option>
-                          </select>
+                          <label className="text-sm font-extrabold text-zinc-800">Nama Lengkap</label>
+                          <input type="text" value={editFormData.full_name || ''} onChange={e => setEditFormData({...editFormData, full_name: e.target.value})} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white" placeholder="Masukkan Nama" />
                        </div>
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Jabatan</label>
-                          <select className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-white">
-                             <option>Passenger Service</option>
-                          </select>
-                       </div>
-                       <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Stasiun</label>
-                          <select className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-white">
-                             <option>Cawang</option>
-                          </select>
+                          <label className="text-sm font-extrabold text-zinc-800">Posisi / Jabatan</label>
+                          <input type="text" value={editFormData.position || ''} onChange={e => setEditFormData({...editFormData, position: e.target.value})} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white" placeholder="Masukkan Posisi" />
                        </div>
 
                        {/* Row 3 */}
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Kode Dinasan</label>
-                          <select className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-400 bg-white">
-                             <option>DP3</option>
+                          <label className="text-sm font-extrabold text-zinc-800">Stasiun Penempatan</label>
+                          <select value={editFormData.station_id || ''} onChange={e => setEditFormData({...editFormData, station_id: e.target.value})} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white">
+                             <option value="">Pilih Stasiun</option>
+                             {stations.map(st => (
+                               <option key={st.id} value={st.id}>{st.name}</option>
+                             ))}
                           </select>
                        </div>
-                       <div className="col-span-2 space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Catatan</label>
+                       <div className="space-y-1">
+                          <label className="text-sm font-extrabold text-zinc-800">Kode Dinasan (Shift)</label>
+                          <input type="text" value={editFormData.shift_code || ''} onChange={e => setEditFormData({...editFormData, shift_code: e.target.value})} className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white uppercase" placeholder="Contoh: DP3" />
+                       </div>
+
+                       {/* Full Width */}
+                       <div className="col-span-1 md:col-span-2 space-y-1">
+                          <label className="text-sm font-extrabold text-zinc-800">Catatan Administratif</label>
                           <textarea 
-                             className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-zinc-400 min-h-[44px] resize-none bg-zinc-50/10"
-                             defaultValue="Data diperbaiki karena nama tidak sesuai KTP, silahkan cek kembali jika ada kesalahan lain."
+                             className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-[13px] font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red min-h-[60px] resize-none bg-white"
+                             placeholder="Tambahkan catatan jika ada kesalahan atau pembaruan."
+                             value={editFormData.note || ''}
+                             onChange={e => setEditFormData({...editFormData, note: e.target.value})}
                           ></textarea>
                        </div>
                     </div>
 
                     {/* Change Status / Log Part */}
-                    <div className="space-y-3 mt-6">
+                    <div className="space-y-3 mt-6 border-t border-zinc-200 pt-6">
                        <div className="flex items-start space-x-3 text-[13px] text-blue-600 font-medium lowercase">
                           <div className="mt-1 w-4 h-4 rounded-sm border border-blue-600 bg-blue-600 flex items-center justify-center">
                              <Check size={12} className="text-white" />
@@ -440,54 +573,58 @@ export default function PendaftaranPegawaiPage() {
 
                {activeTab === 'RIWAYAT' && (
                  <div className="space-y-6 py-2">
-                    {/* Admin Change Item */}
-                    <div className="space-y-3">
-                       <div className="flex items-center space-x-2 text-sm font-bold text-orange-400">
-                          <div className="w-4 h-4 rounded-sm bg-orange-400 flex items-center justify-center">
-                             <Check size={12} className="text-white" />
-                          </div>
-                          <span>1 April 2025, 14.30 WIB</span>
-                       </div>
-                       <div className="p-4 bg-orange-100/60 border border-orange-200 rounded-lg">
-                          <p className="text-sm font-bold text-orange-400 mb-1">Diedit Oleh Admin :</p>
-                          <p className="text-sm font-bold text-zinc-600">Nama Diperbaiki : <span className="text-orange-400">Adhmad Fauzi {"->"} Achmad Fauzi</span></p>
-                       </div>
-                    </div>
+                    {loadingLogs ? (
+                       <div className="py-12 flex justify-center"><div className="w-8 h-8 border-4 border-brand-red border-t-transparent rounded-full animate-spin"></div></div>
+                    ) : logs.length === 0 ? (
+                       <div className="py-12 text-center text-zinc-500 font-medium italic text-sm">Belum ada riwayat perubahan data.</div>
+                    ) : (
+                       logs.map((log) => {
+                          const date = new Date(log.created_at).toLocaleString('id-ID', {
+                             day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                          }) + ' WIB'
+                          const isAdmin = log.actor_id !== selectedEmployee?.id
 
-                    {/* User Input Item */}
-                    <div className="space-y-3">
-                       <div className="flex items-center space-x-2 text-sm font-bold text-zinc-800">
-                          <div className="w-5 h-5 rounded-sm bg-[#5271FF] flex items-center justify-center text-white text-[10px] font-bold">
-                             A
-                          </div>
-                          <span>1 April 2025, 10.10 WIB</span>
-                       </div>
-                       <div className="p-4 bg-[#DCE4FF] border border-[#B8C9FF] rounded-lg">
-                          <p className="text-sm font-bold text-[#5271FF] mb-3">Dinput Oleh Pengguna</p>
-                          <ul className="space-y-2 text-sm font-bold text-zinc-800">
-                             <li className="flex items-center space-x-2">
-                                <span className="w-2 h-2 rounded-full bg-[#5271FF]"></span>
-                                <span>Nama : {"->"} Adhmad Fauzi</span>
-                             </li>
-                             <li className="flex items-center space-x-2">
-                                <span className="w-2 h-2 rounded-full bg-[#5271FF]"></span>
-                                <span>Posisi : {"->"} Passanger Service</span>
-                             </li>
-                             <li className="flex items-center space-x-2">
-                                <span className="w-2 h-2 rounded-full bg-[#5271FF]"></span>
-                                <span>Kode Dinas : {"->"} DP3</span>
-                             </li>
-                          </ul>
-                       </div>
-                    </div>
+                          if (isAdmin) {
+                             return (
+                                <div key={log.id} className="space-y-3">
+                                   <div className="flex items-center space-x-2 text-sm font-bold text-orange-400">
+                                      <div className="w-4 h-4 rounded-sm bg-orange-400 flex items-center justify-center">
+                                         <Check size={12} className="text-white" />
+                                      </div>
+                                      <span>{date}</span>
+                                   </div>
+                                   <div className="p-4 bg-orange-100/60 border border-orange-200 rounded-lg">
+                                      <p className="text-sm font-bold text-orange-400 mb-1">Diedit Oleh Admin :</p>
+                                      <p className="text-sm font-bold text-zinc-600 whitespace-pre-wrap">{log.description}</p>
+                                   </div>
+                                </div>
+                             )
+                          } else {
+                             return (
+                                <div key={log.id} className="space-y-3">
+                                   <div className="flex items-center space-x-2 text-sm font-bold text-zinc-800">
+                                      <div className="w-5 h-5 rounded-sm bg-[#5271FF] flex items-center justify-center text-white text-[10px] font-bold">
+                                         U
+                                      </div>
+                                      <span>{date}</span>
+                                   </div>
+                                   <div className="p-4 bg-[#DCE4FF] border border-[#B8C9FF] rounded-lg">
+                                      <p className="text-sm font-bold text-[#5271FF] mb-3">Diupdate Oleh Pengguna</p>
+                                      <p className="text-sm font-bold text-zinc-800 whitespace-pre-wrap">{log.description}</p>
+                                   </div>
+                                </div>
+                             )
+                          }
+                       })
+                    )}
 
                     {/* Checkbox and Action Button */}
-                    <div className="flex justify-between items-center pt-4">
+                    <div className="flex justify-between items-center pt-4 border-t border-zinc-200">
                        <label className="flex items-center space-x-3 cursor-pointer group">
-                          <div className="w-4 h-4 rounded border-2 border-zinc-400 group-hover:border-zinc-800 transition shadow-sm bg-white"></div>
+                          <input type="checkbox" className="w-4 h-4 text-brand-red bg-zinc-100 border-zinc-300 rounded focus:ring-brand-red focus:ring-2" />
                           <span className="text-xs font-bold text-zinc-700">Tandai Semua Perubahan Sudah Diperiksa</span>
                        </label>
-                       <button className="bg-[#E0E4EC] text-zinc-700 px-6 py-2 rounded-md font-bold text-xs hover:bg-zinc-300 transition shadow-sm">
+                       <button onClick={handleClearHistory} disabled={logs.length === 0} className="bg-[#E0E4EC] disabled:opacity-50 text-zinc-700 px-6 py-2 rounded-md font-bold text-xs hover:bg-zinc-300 transition shadow-sm">
                           Bersihkan Riwayat
                        </button>
                     </div>
@@ -498,7 +635,7 @@ export default function PendaftaranPegawaiPage() {
             {/* Modal Footer */}
             <div className="mt-8 flex justify-end space-x-4">
                <button onClick={() => setIsEditModalOpen(false)} className="w-36 py-2 rounded-[4px] bg-[#E0E4EC] text-zinc-700 font-bold hover:bg-zinc-300 transition text-sm">Batal</button>
-               <button onClick={() => setIsEditModalOpen(false)} className={`w-64 py-2 rounded-[4px] text-white font-bold transition text-sm shadow-md ${activeTab === 'DATA' ? 'bg-[#003FE1] hover:bg-blue-700' : 'bg-[#003FE1] hover:bg-blue-700'}`}>
+               <button onClick={activeTab === 'DATA' ? submitEdit : () => setIsEditModalOpen(false)} className={`w-64 py-2 rounded-[4px] text-white font-bold transition text-sm shadow-md bg-[#003FE1] hover:bg-blue-700`}>
                   {activeTab === 'DATA' ? 'Simpan Perubahan' : 'Tutup'}
                </button>
             </div>
@@ -603,6 +740,14 @@ export default function PendaftaranPegawaiPage() {
         status={modal.status}
         message={modal.message}
         onClose={() => setModal({ ...modal, isOpen: false })}
+      />
+
+      <ConfirmModal 
+        isOpen={confirmDelete.isOpen}
+        title="Hapus Pegawai"
+        message="Apakah Anda yakin ingin menghapus pegawai ini? Data yang dihapus tidak dapat dikembalikan."
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmDelete({ isOpen: false, id: null })}
       />
     </div>
   )

@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation'
 import { Radio, Search, Edit3, Eye, X, FileType, Send, Copy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
+import { ConfirmModal } from '@/components/ConfirmModal'
 
 export default function BroadcastAdminPage() {
   const router = useRouter()
   const supabase = createClient()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [selectedDetail, setSelectedDetail] = useState<any>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [activeTabModal, setActiveTabModal] = useState<'INFO' | 'KONTEN'>('INFO')
   const [broadcasts, setBroadcasts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,6 +32,7 @@ export default function BroadcastAdminPage() {
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
   })
+  const [confirmDelete, setConfirmDelete] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null})
 
   useEffect(() => { fetchBroadcasts() }, [])
 
@@ -40,6 +45,7 @@ export default function BroadcastAdminPage() {
   }
 
   const openAddModal = () => {
+    setEditingId(null)
     setFormTitle('')
     setFormDescription('')
     setFormStartAt('')
@@ -49,6 +55,34 @@ export default function BroadcastAdminPage() {
     setBannerUrl('')
     setActiveTabModal('INFO')
     setIsEditModalOpen(true)
+  }
+
+  const openEditModal = (broadcast: any) => {
+    setEditingId(broadcast.id)
+    setFormTitle(broadcast.title || '')
+    setFormDescription(broadcast.content || '')
+    
+    const formatDateTime = (dateStr: string) => {
+        if (!dateStr) return ''
+        const d = new Date(dateStr)
+        if (isNaN(d.getTime())) return ''
+        const offset = d.getTimezoneOffset()
+        const localDate = new Date(d.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().slice(0, 16)
+    }
+
+    setFormStartAt(formatDateTime(broadcast.start_at))
+    setFormEndAt(formatDateTime(broadcast.end_at))
+    setFormIsActive(broadcast.is_active ?? true)
+    setFormPopupActive(broadcast.show_popup ?? false)
+    setBannerUrl(broadcast.popup_banner_url || '')
+    setActiveTabModal('INFO')
+    setIsEditModalOpen(true)
+  }
+
+  const openDetailModal = (broadcast: any) => {
+    setSelectedDetail(broadcast)
+    setIsDetailModalOpen(true)
   }
 
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,15 +110,29 @@ export default function BroadcastAdminPage() {
     }
     setModal({ isOpen: true, status: 'loading', message: 'Menyimpan broadcast...' })
     setIsSaving(true)
-    const { error } = await supabase.from('broadcasts').insert([{
+    let startAtISO = null
+    let endAtISO = null
+    if (formStartAt) startAtISO = new Date(formStartAt).toISOString()
+    if (formEndAt) endAtISO = new Date(formEndAt).toISOString()
+
+    const payload = {
       title: formTitle,
       content: formDescription,
-      start_at: formStartAt || null,
-      end_at: formEndAt || null,
+      start_at: startAtISO,
+      end_at: endAtISO,
       is_active: formIsActive,
       show_popup: formPopupActive,
       popup_banner_url: bannerUrl || null
-    }])
+    }
+
+    let error;
+    if (editingId) {
+      const { error: err } = await supabase.from('broadcasts').update(payload).eq('id', editingId)
+      error = err
+    } else {
+      const { error: err } = await supabase.from('broadcasts').insert([payload])
+      error = err
+    }
 
     if (error) {
       setModal({ isOpen: true, status: 'error', message: 'Gagal menyimpan: ' + error.message })
@@ -96,10 +144,17 @@ export default function BroadcastAdminPage() {
     setIsSaving(false)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Yakin ingin menghapus broadcast ini?')) return
+  const handleDelete = (id: string) => {
+    setConfirmDelete({ isOpen: true, id })
+  }
+
+  const executeDelete = async () => {
+    if (!confirmDelete.id) return
+    const idToDel = confirmDelete.id
+    setConfirmDelete({ isOpen: false, id: null })
+    
     setModal({ isOpen: true, status: 'loading', message: 'Menghapus broadcast...' })
-    const { error } = await supabase.from('broadcasts').delete().eq('id', id)
+    const { error } = await supabase.from('broadcasts').delete().eq('id', idToDel)
     if (error) {
        setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus: ' + error.message })
     } else {
@@ -203,8 +258,8 @@ export default function BroadcastAdminPage() {
                          </td>
                          <td className="px-6 py-6">
                            <div className="flex items-center space-x-6">
-                             <button className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
-                             <button onClick={() => setIsEditModalOpen(true)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
+                             <button onClick={() => openDetailModal(item)} className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
+                             <button onClick={() => openEditModal(item)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
                              <button onClick={() => handleDelete(item.id)} className="text-[#8B0000] hover:scale-110 transition"><X size={18} /></button>
                            </div>
                          </td>
@@ -240,11 +295,11 @@ export default function BroadcastAdminPage() {
                           </span>
                        </div>
                        <div className="flex justify-between items-center pt-4 border-t border-zinc-50">
-                          <div className="flex items-center space-x-4">
-                             <button className="text-green-600"><Eye size={18}/></button>
-                             <button onClick={() => setIsEditModalOpen(true)} className="text-orange-400"><Edit3 size={18}/></button>
-                             <button onClick={() => handleDelete(item.id)} className="text-red-600"><X size={16} /></button>
-                          </div>
+                           <div className="flex items-center space-x-4">
+                              <button onClick={() => openDetailModal(item)} className="text-green-600"><Eye size={18}/></button>
+                              <button onClick={() => openEditModal(item)} className="text-orange-400"><Edit3 size={18}/></button>
+                              <button onClick={() => handleDelete(item.id)} className="text-red-600"><X size={16} /></button>
+                           </div>
                           <button className="text-zinc-300"><Copy size={18}/></button>
                        </div>
                     </div>
@@ -416,12 +471,74 @@ export default function BroadcastAdminPage() {
           </div>
         </div>
       )}
+      {/* Detail Modal */}
+      {isDetailModalOpen && selectedDetail && (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsDetailModalOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+             <div className="p-5 border-b bg-zinc-50 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-zinc-800">Detail Broadcast</h3>
+                <button onClick={() => setIsDetailModalOpen(false)} className="text-zinc-400 hover:text-zinc-600">
+                   <X size={20} className="border-2 border-transparent hover:border-zinc-300 rounded p-0.5" />
+                </button>
+             </div>
+             <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
+                <div>
+                   <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-2">Judul</h4>
+                   <p className="text-lg font-bold text-zinc-900">{selectedDetail.title}</p>
+                </div>
+                {selectedDetail.start_at && selectedDetail.end_at && (
+                    <div className="flex space-x-6">
+                       <div>
+                          <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Mulai</h4>
+                          <p className="text-sm font-medium text-zinc-800">{new Date(selectedDetail.start_at).toLocaleString('id-ID')}</p>
+                       </div>
+                       <div>
+                          <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Selesai</h4>
+                          <p className="text-sm font-medium text-zinc-800">{new Date(selectedDetail.end_at).toLocaleString('id-ID')}</p>
+                       </div>
+                    </div>
+                )}
+                <div>
+                   <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-2">Status</h4>
+                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedDetail.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {selectedDetail.is_active ? 'Aktif' : 'Tidak Aktif'}
+                   </span>
+                </div>
+                {selectedDetail.popup_banner_url && (
+                   <div>
+                      <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-2">Banner (Popup)</h4>
+                      <img src={selectedDetail.popup_banner_url} alt="Banner" className="w-full max-h-48 object-contain rounded border border-zinc-200" />
+                   </div>
+                )}
+                <div>
+                   <h4 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-2">Konten / Deskripsi</h4>
+                   <div className="p-4 bg-zinc-50 rounded-lg text-sm text-zinc-700 font-medium whitespace-pre-wrap">
+                      {selectedDetail.content || '-'}
+                   </div>
+                </div>
+             </div>
+             <div className="p-4 border-t flex justify-end">
+                <button onClick={() => setIsDetailModalOpen(false)} className="px-6 py-2 bg-brand-red text-white font-bold rounded-lg hover:bg-red-700 transition">Tutup Detail</button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Status */}
       <StatusModal 
         isOpen={modal.isOpen}
         status={modal.status}
         message={modal.message}
         onClose={() => setModal({ ...modal, isOpen: false })}
+      />
+
+      <ConfirmModal 
+        isOpen={confirmDelete.isOpen}
+        title="Hapus Broadcast"
+        message="Yakin ingin menghapus broadcast ini? Broadcast yang dihapus tidak bisa dikembalikan."
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmDelete({ isOpen: false, id: null })}
       />
     </div>
   )
