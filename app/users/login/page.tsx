@@ -112,7 +112,7 @@ export default function UserLoginPage() {
                   Ingat Saya
                 </label>
               </div>
-              <Link href="/users/forgot-password" size="sm" className="text-brand-red font-semibold hover:underline">
+              <Link href="/users/forgot-password" className="text-brand-red font-semibold hover:underline">
                 Lupa Password?
               </Link>
             </div>
