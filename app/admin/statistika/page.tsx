@@ -23,7 +23,8 @@ export default function StatistikaPage() {
       .eq('role', 'user')
 
     // Hadir (Termasuk Telat)
-    const today = new Date().toISOString().split('T')[0]
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const { data: attendanceToday } = await supabase
       .from('attendance')
       .select('status')
@@ -46,20 +47,20 @@ export default function StatistikaPage() {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-6">
-          <div className="text-white border-2 border-white/20 p-2 rounded-lg">
-            <TrendingUp size={40} />
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-4 md:space-x-6">
+          <div className="text-white border-2 border-white/20 p-1.5 md:p-2 rounded-lg">
+            <TrendingUp className="w-7 h-7 md:w-10 md:h-10" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-wide leading-tight">Statistika Presence</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide leading-tight">Statistika Presence</h2>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-12">
-        <div className="max-w-6xl mx-auto space-y-12">
+      <div className="flex-1 overflow-y-auto p-6 md:p-12 scrollbar-hide">
+        <div className="max-w-6xl mx-auto space-y-10 md:space-y-12">
           
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -110,9 +111,9 @@ export default function StatistikaPage() {
              <div className="border border-[#B71C1C] rounded-md p-8 bg-white shadow-sm flex flex-col items-center">
                 <h3 className="w-full text-left text-brand-red font-black text-lg mb-10">Statistik Kehadiran</h3>
                 
-                 <div className="flex items-center space-x-12 w-full justify-center">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-12 w-full">
                     {/* Donut SVG Dynamic */}
-                    <div className="relative w-48 h-48">
+                    <div className="relative w-40 h-40 md:w-48 md:h-48 shrink-0">
                        <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
                           {/* Background Circle (Total - Light Grey) */}
                           <circle cx="50" cy="50" r="40" stroke="#f1f1f1" strokeWidth="12" fill="transparent" />
@@ -138,34 +139,34 @@ export default function StatistikaPage() {
                           />
                        </svg>
                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                          <span className="text-lg font-black text-zinc-800 leading-none">
+                          <span className="text-base md:text-lg font-black text-zinc-800 leading-none">
                             {stats.hadir + stats.telat}/{stats.totalPegawai}
                           </span>
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase">Total<br/>Presence</span>
+                          <span className="text-[9px] md:text-[10px] font-bold text-zinc-400 uppercase">Total<br/>Presence</span>
                        </div>
                     </div>
 
                     {/* Legend */}
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4 w-full sm:w-auto">
                        <div className="flex items-center space-x-3">
-                          <div className="w-5 h-5 rounded-full bg-[#4CAF50]"></div>
+                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[#4CAF50]"></div>
                           <div className="flex flex-col leading-tight">
-                            <span className="text-sm font-bold text-zinc-600">Hadir</span>
-                            <span className="text-[10px] font-black text-zinc-400">{stats.hadir} Pegawai</span>
+                            <span className="text-xs md:text-sm font-bold text-zinc-600">Hadir</span>
+                            <span className="text-[9px] md:text-[10px] font-black text-zinc-400">{stats.hadir} Pegawai</span>
                           </div>
                        </div>
                        <div className="flex items-center space-x-3">
-                          <div className="w-5 h-5 rounded-full bg-[#E5E5E5]"></div>
+                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[#E5E5E5]"></div>
                           <div className="flex flex-col leading-tight">
-                            <span className="text-sm font-bold text-zinc-600">Tidak Hadir</span>
-                            <span className="text-[10px] font-black text-zinc-400">{stats.tidakHadir} Pegawai</span>
+                            <span className="text-xs md:text-sm font-bold text-zinc-600">Tidak Hadir</span>
+                            <span className="text-[9px] md:text-[10px] font-black text-zinc-400">{stats.tidakHadir} Pegawai</span>
                           </div>
                        </div>
                        <div className="flex items-center space-x-3">
-                          <div className="w-5 h-5 rounded-full bg-[#B71C1C]"></div>
+                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[#B71C1C]"></div>
                           <div className="flex flex-col leading-tight">
-                            <span className="text-sm font-bold text-zinc-600">Telat</span>
-                            <span className="text-[10px] font-black text-zinc-400">{stats.telat} Pegawai</span>
+                            <span className="text-xs md:text-sm font-bold text-zinc-600">Telat</span>
+                            <span className="text-[9px] md:text-[10px] font-black text-zinc-400">{stats.telat} Pegawai</span>
                           </div>
                        </div>
                     </div>

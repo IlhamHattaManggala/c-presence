@@ -100,20 +100,20 @@ export default function AdminProfilePage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-white relative">
+    <div className="h-full flex flex-col overflow-y-auto bg-white relative scrollbar-hide">
       {/* Header */}
-      <div className="h-28 bg-[#E62020] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-4">
+      <div className="min-h-[112px] md:h-28 bg-[#E62020] w-full flex items-center px-6 md:px-10 py-6 md:py-0 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4">
           <button 
             onClick={() => router.back()}
-            className="text-white hover:bg-white/10 p-2 rounded-full transition-colors mr-2"
+            className="text-white hover:bg-white/10 p-2 rounded-full transition-colors shrink-0"
           >
-            <ChevronLeft size={28} />
+            <ChevronLeft className="w-6 h-6 md:w-7 md:h-7" />
           </button>
-          <div className="w-12 h-12 rounded-full border-2 border-white flex items-center justify-center text-white">
-            <User size={28} />
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white flex items-center justify-center text-white shrink-0 hidden xs:flex">
+            <User className="w-5 h-5 md:w-7 md:h-7" />
           </div>
-          <h2 className="text-xl font-bold text-white tracking-wide">
+          <h2 className="text-sm md:text-xl font-bold text-white tracking-wide leading-tight">
             Profile Admin PT. Kereta Commuter Indonesia
           </h2>
         </div>

@@ -59,19 +59,19 @@ export default function NotifikasiAdminPage() {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-4">
-          <div className="text-white p-2">
-            <Bell size={40} />
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          <div className="text-white shrink-0">
+            <Bell className="w-8 h-8 md:w-10 md:h-10" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white tracking-wide leading-tight">Notifikasi Presence</h2>
+            <h2 className="text-lg md:text-xl font-bold text-white tracking-wide leading-tight">Notifikasi Presence</h2>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-10">
+      <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
         <div className="max-w-4xl mx-auto">
           
           <div className="flex justify-between items-center mb-8">

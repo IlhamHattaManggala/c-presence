@@ -44,3 +44,13 @@ body {
 .bottom-nav-padding {
   padding-bottom: 80px;
 }
+
+/* Force hide scrollbars but keep functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}

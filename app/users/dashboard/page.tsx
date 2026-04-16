@@ -31,21 +31,34 @@ export default function UserDashboard() {
             .from('users')
             .select('*')
             .eq('id', user.id)
-            .single()
+            .maybeSingle() // Gunakan maybeSingle agar tidak error jika data kosong di database
             
           if (profileError) {
             console.error("Dashboard Profile Error:", profileError)
-            // Silently fail if not found, but log it
           }
-          setUserData(profile)
+
+          if (!profile) {
+            // Jika profil belum ada di tabel 'users' (misal: baru login Google pertama kali)
+            // Ambil data dasar dari metadata auth
+            setUserData({
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+              position: 'Karyawan Baru',
+              role: 'user'
+            })
+          } else {
+            setUserData(profile)
+          }
 
           // Fetch Today's Attendance
-          const today = new Date().toISOString().split('T')[0]
+          // Gunakan format lokal YYYY-MM-DD agar sinkron dengan waktu user
+          const today = new Date().toLocaleDateString('en-CA') 
           const { data: attendance } = await supabase
             .from('attendance')
             .select('*')
             .eq('user_id', user.id)
             .eq('date', today)
+            .order('clock_in', { ascending: false })
+            .limit(1)
             .maybeSingle()
           
           setTodayAttendance(attendance)
@@ -179,8 +192,8 @@ export default function UserDashboard() {
                   src="/images/BerandaUser.png" 
                   alt="KAI Train" 
                   fill 
+                  sizes="(max-width: 768px) 100vw, 850px"
                   className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                 <div className="absolute bottom-6 left-8 text-white">

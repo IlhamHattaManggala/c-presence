@@ -143,9 +143,9 @@ export default function MasterDataPage() {
     }
 
     return (
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in duration-500">
           {data.map((item) => (
-             <div key={item.id || item.code} className="bg-white border border-zinc-100 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+             <div key={item.id || item.code} className="bg-white border border-zinc-100 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-zinc-50 to-transparent -z-10 rounded-bl-full opacity-50"></div>
                 
                 <div className="flex items-start justify-between mb-4">
@@ -193,14 +193,14 @@ export default function MasterDataPage() {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center justify-between px-10 shrink-0">
-        <div className="flex items-center space-x-6">
-          <div className="text-white border-2 border-white/20 p-2 rounded-lg">
-            <Database size={40} />
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-gradient-to-r from-[#E62020] to-[#8B0000] w-full flex items-center justify-between px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-6">
+          <div className="text-white border-2 border-white/20 p-1.5 md:p-2 rounded-lg shrink-0">
+            <Database className="w-8 h-8 md:w-10 md:h-10" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-wide leading-tight">Master Data</h2>
-            <p className="text-white/80 text-sm font-medium">Kelola Data Stasiun &amp; Shift (Kode Dinas)</p>
+            <h2 className="text-lg md:text-2xl font-bold text-white tracking-wide leading-tight">Master Data</h2>
+            <p className="text-white/80 text-[10px] md:text-xs lg:text-sm font-medium leading-tight">Kelola Data Stasiun & Master Shift</p>
           </div>
         </div>
         <button 
@@ -213,29 +213,34 @@ export default function MasterDataPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-12 bg-[#F8F9FA]">
+      <div className="flex-1 overflow-y-auto p-6 md:p-12 bg-[#F8F9FA] scrollbar-hide">
         <div className="max-w-7xl mx-auto">
           
           {/* Sub Navigation Tabs */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-10 space-y-4 md:space-y-0">
-             <div className="flex bg-white shadow-sm border border-zinc-100 p-1.5 rounded-2xl w-full md:w-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-10 space-y-4 md:space-y-0">
+             <div className="flex bg-white shadow-sm border border-zinc-100 p-1 rounded-xl w-full md:w-auto">
                 <button 
                   onClick={() => setActiveTab('STASIUN')}
-                  className={`flex-1 md:flex-none px-10 py-3 text-sm font-black rounded-xl transition-all ${activeTab === 'STASIUN' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'STASIUN' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
                   Data Stasiun
                 </button>
                 <button 
                   onClick={() => setActiveTab('SHIFT')}
-                  className={`flex-1 md:flex-none px-10 py-3 text-sm font-black rounded-xl transition-all ${activeTab === 'SHIFT' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'SHIFT' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
-                  Data Kode Dinas (Shift)
+                  Data Shift
                 </button>
              </div>
 
-             <div className="relative w-full md:w-72">
-                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                 <input type="text" placeholder="Cari data..." className="w-full bg-white border border-zinc-200 rounded-xl pl-12 pr-4 py-3.5 text-sm focus:outline-none focus:border-brand-red font-medium text-zinc-700 shadow-sm" />
+             <div className="flex w-full md:w-auto space-x-2">
+                <div className="relative flex-1 md:w-64">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+                    <input type="text" placeholder="Cari..." className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 md:py-3.5 text-xs md:text-sm focus:outline-none focus:border-brand-red font-medium text-zinc-700 shadow-sm" />
+                </div>
+                <button onClick={openAddForm} className="md:hidden bg-brand-red text-white p-2.5 rounded-xl shadow-lg active:scale-95 transition-transform shrink-0">
+                   <Plus size={20} />
+                </button>
              </div>
           </div>
 

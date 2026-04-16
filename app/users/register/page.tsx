@@ -101,6 +101,7 @@ export default function UserRegisterPage() {
             src="/images/Logo register.png" 
             alt="Register Illustration" 
             fill
+            sizes="(max-width: 768px) 100vw, 500px"
             className="object-contain lg:object-bottom"
             priority
           />

@@ -120,14 +120,6 @@ export default function AdminLoginPage() {
               >
                 {loading ? 'Memuat...' : 'Masuk'}
               </button>
-
-              <button 
-                type="button"
-                className="w-full h-14 bg-white border border-brand-red text-black text-lg font-medium rounded-xl flex items-center justify-center space-x-3 hover:bg-zinc-50 transition-colors"
-              >
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-                <span>Sign in with Google</span>
-              </button>
             </div>
 
             <p className="text-center text-lg text-black mt-12">

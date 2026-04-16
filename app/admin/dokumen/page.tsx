@@ -55,22 +55,24 @@ export default function AdminDokumenLanding() {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-[#E62020] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-4">
-          <div className="text-white">
-            <FileText size={40} />
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-[#E62020] w-full flex items-center px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          <div className="text-white shrink-0">
+            <FileText className="w-8 h-8 md:w-10 md:h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-wide">Dokumen Presence</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide leading-tight">Dokumen Presence</h2>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 p-10 flex flex-col items-center overflow-y-auto">
-        {/* Top Navigation */}
-        <div className="w-full max-w-6xl flex justify-end space-x-3 mb-10">
-          <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
-          <button onClick={() => router.push('/admin/dokumen/broadcast')} className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50">Broadcast</button>
-          <button onClick={() => router.push('/admin/dokumen/presensi')} className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
+      <div className="flex-1 p-6 md:p-10 flex flex-col items-center overflow-y-auto scrollbar-hide">
+        {/* Top Navigation - Satu Baris Horizontal */}
+        <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide mb-10 py-2">
+           <div className="flex flex-nowrap gap-2">
+              <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
+              <button onClick={() => router.push('/admin/dokumen/broadcast')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Broadcast</button>
+              <button onClick={() => router.push('/admin/dokumen/presensi')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
+           </div>
         </div>
 
         {/* Action Cards */}
@@ -95,39 +97,6 @@ export default function AdminDokumenLanding() {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Templates Section */}
-        <div className="w-full max-w-6xl mt-20 mb-20 animate-in fade-in slide-in-from-bottom-5 duration-700">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-               <h3 className="text-2xl font-black text-zinc-800 tracking-tight">Template Dokumen</h3>
-               <p className="text-zinc-500 font-medium italic">Unduh file master untuk kelengkapan administrasi</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {templates.map((tpl, idx) => (
-              <div key={idx} className="bg-white border border-zinc-100 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 ${tpl.color}`}>
-                   <tpl.icon size={28} />
-                </div>
-                <h4 className="font-bold text-zinc-800 text-lg leading-tight mb-2">{tpl.title}</h4>
-                <div className="flex items-center space-x-3 text-xs font-bold text-zinc-400 mb-6 uppercase tracking-widest">
-                   <span>{tpl.type}</span>
-                   <span>•</span>
-                   <span>{tpl.size}</span>
-                </div>
-                <button 
-                   onClick={(e) => { e.stopPropagation(); handleDownload(tpl); }}
-                   className="w-full py-3 bg-zinc-50 group-hover:bg-[#E62020] group-hover:text-white rounded-xl flex items-center justify-center space-x-2 transition-all font-bold text-sm text-zinc-600"
-                >
-                   <Download size={16} />
-                   <span>Download</span>
-                </button>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

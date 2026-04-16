@@ -7,10 +7,8 @@ import { BottomNav } from '@/components/BottomNav'
 import { Map, Marker, Overlay } from 'pigeon-maps'
 import { createClient } from '@/lib/supabase/client'
 
-// Target: Stasiun Depok Baru
-const STATION_LAT = -6.3926
-const STATION_LNG = 106.8183
-const MAX_RADIUS_METERS = 99999999 // BYPASS UNTUK TESTING (dianggap selalu di dalam stasiun)
+// Radius dan koordinat stasiun sekarang dinamis dari database
+// Tidak ada lagi hardcode atau bypass radius
 
 // Hitung jarak (Haversine formula dalam meter)
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -45,6 +43,10 @@ export default function PresencePage() {
     message: ''
   })
 
+  // State untuk semua stasiun dan stasiun terdekat
+  const [allStations, setAllStations] = useState<any[]>([])
+  const [nearestStation, setNearestStation] = useState<any | null>(null)
+
   // Geolocation states
   const [userLat, setUserLat] = useState<number | null>(null)
   const [userLng, setUserLng] = useState<number | null>(null)
@@ -73,42 +75,42 @@ export default function PresencePage() {
           const { latitude, longitude } = position.coords
           setUserLat(latitude)
           setUserLng(longitude)
-          
-          const dist = getDistance(latitude, longitude, STATION_LAT, STATION_LNG)
-          setDistance(Math.round(dist))
           setIsGettingLocation(false)
           setLocationError(null)
-
-          // Otomatis pindah ke kamera jika di dalam radius
-          if (dist <= MAX_RADIUS_METERS) {
-            setViewMode('camera')
-          }
         },
         (error) => {
           console.warn("Peringatan geolokasi:", error.message)
           setLocationError('Gagal mengakses lokasi. Pastikan GPS aktif dan Anda memberikan izin lokasi pada browser.')
           setIsGettingLocation(false)
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
       )
 
-      // Fetch User & Attendance
+      // Fetch Attendance & Semua Stasiun
       const fetchData = async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('*, stations(*)')
+            .select('*')
             .eq('id', user.id)
             .single()
-          setUserData(profile)
+          if (profile) setUserData(profile)
 
-          const today = new Date().toISOString().split('T')[0]
+          // Ambil semua stasiun untuk cek stasiun terdekat
+          const { data: stations } = await supabase
+            .from('stations')
+            .select('*')
+          if (stations) setAllStations(stations)
+
+          const today = new Date().toLocaleDateString('en-CA')
           const { data: attendance } = await supabase
             .from('attendance')
             .select('*')
             .eq('user_id', user.id)
             .eq('date', today)
+            .order('clock_in', { ascending: false })
+            .limit(1)
             .maybeSingle()
           setTodayAttendance(attendance)
         }
@@ -125,6 +127,31 @@ export default function PresencePage() {
       return () => clearInterval(timer)
     }
   }, [])
+
+  // Effect: cari stasiun TERDEKAT dan cek apakah dalam radius-nya
+  useEffect(() => {
+    if (userLat !== null && userLng !== null && allStations.length > 0) {
+      // Hitung jarak ke setiap stasiun
+      let closest: any = null
+      let closestDist = Infinity
+
+      for (const station of allStations) {
+        const dist = getDistance(userLat, userLng, station.latitude, station.longitude)
+        if (dist < closestDist) {
+          closestDist = dist
+          closest = station
+        }
+      }
+
+      setNearestStation(closest)
+      setDistance(Math.round(closestDist))
+
+      // Pindah ke kamera jika dalam radius stasiun terdekat
+      if (closest && closestDist <= (closest.radius_meters || 100)) {
+        setViewMode('camera')
+      }
+    }
+  }, [userLat, userLng, allStations])
 
   const [flash, setFlash] = useState(false)
 
@@ -148,7 +175,7 @@ export default function PresencePage() {
     setModal({ isOpen: true, status: 'loading', message: 'Sedang mencatat data presensi Anda...' })
 
     const now = new Date()
-    const today = now.toISOString().split('T')[0]
+    const today = now.toLocaleDateString('en-CA') // Format lokal YYYY-MM-DD
     const timeOnly = now.toLocaleTimeString('en-GB') // Format HH:mm:ss
 
     try {
@@ -169,8 +196,29 @@ export default function PresencePage() {
       } else {
         // Clock In
         let status = 'Hadir'
-        const hour = now.getHours()
-        if (hour >= 8) status = 'Telat'
+        
+        // 1. Dapatkan Jam Masuk dari Shift User
+        if (userData.shift_code) {
+          const { data: shiftData } = await supabase
+            .from('shifts')
+            .select('start_time')
+            .eq('code', userData.shift_code)
+            .single()
+
+          if (shiftData && shiftData.start_time) {
+            // Bandingkan waktu sekarang dengan start_time (format HH:mm:ss)
+            const [shiftHour, shiftMin] = shiftData.start_time.split(':').map(Number)
+            const nowHour = now.getHours()
+            const nowMin = now.getMinutes()
+
+            if (nowHour > shiftHour || (nowHour === shiftHour && nowMin > shiftMin)) {
+              status = 'Telat'
+            }
+          }
+        } else {
+          // Fallback jika tidak ada kode shift (default jam 08:00)
+          if (now.getHours() >= 8) status = 'Telat'
+        }
 
         const { error } = await supabase
           .from('attendance')
@@ -352,15 +400,17 @@ export default function PresencePage() {
               defaultZoom={15} 
               center={[userLat, userLng]}
             >
-              {/* Marker Stasiun - Merah */}
-              <Marker width={40} anchor={[STATION_LAT, STATION_LNG]} color="#cc0000" />
-              
-              {/* Overlay Stasiun Label */}
-              <Overlay anchor={[STATION_LAT, STATION_LNG]} offset={[40, 45]}>
-                <div className="bg-white/95 px-3 py-1 rounded shadow-md border border-brand-red whitespace-nowrap">
-                  <p className="text-xs font-bold text-brand-red">Stasiun Depok Baru</p>
-                </div>
-              </Overlay>
+              {/* Marker Stasiun Terdekat - Merah */}
+              {nearestStation && (
+                <Marker width={40} anchor={[nearestStation.latitude, nearestStation.longitude]} color="#cc0000" />
+              )}
+              {nearestStation && (
+                <Overlay anchor={[nearestStation.latitude, nearestStation.longitude]} offset={[40, 45]}>
+                  <div className="bg-white/95 px-3 py-1 rounded shadow-md border border-brand-red whitespace-nowrap">
+                    <p className="text-xs font-bold text-brand-red">{nearestStation.name}</p>
+                  </div>
+                </Overlay>
+              )}
 
               {/* Marker Lokasi Pengguna - Biru (Pigeon Maps Default) */}
               <Marker width={40} anchor={[userLat, userLng]} color="#3B82F6" />
@@ -389,18 +439,17 @@ export default function PresencePage() {
           )}
         </div>
 
-        {/* Status Bottom Overlay - Only Shows when NOT in bounds */}
-        {!isGettingLocation && distance !== null && distance > MAX_RADIUS_METERS && (
+        {/* Status Bottom Overlay - Tampil jika di luar radius stasiun terdekat */}
+        {!isGettingLocation && nearestStation && distance !== null && distance > (nearestStation.radius_meters || 100) && (
           <div className="absolute bottom-24 left-4 right-4 z-20 flex justify-center pointer-events-none">
               <div className="bg-white/95 backdrop-blur-md p-4 rounded-[24px] shadow-xl border border-red-100 text-center animate-in slide-in-from-bottom-5 w-full max-w-sm pointer-events-auto">
                 <p className="text-[9px] font-bold text-red-600 mb-1.5 bg-red-50 py-1 px-3 rounded-full inline-block">
-                   DILUAR AREA ({distance !== null && distance > 1000 ? (distance / 1000).toFixed(1) + ' km' : distance + ' m'})
+                   DILUAR AREA ({distance > 1000 ? (distance / 1000).toFixed(1) + ' km' : distance + ' m'})
                 </p>
                 <h3 className="text-base font-bold text-zinc-800 mb-1">Anda Terlalu Jauh</h3>
-                <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan di dalam radius {MAX_RADIUS_METERS} meter dari stasiun.</p>
+                <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 100} meter dari {nearestStation.name}.</p>
               </div>
           </div>
-
         )}
       </div>
 

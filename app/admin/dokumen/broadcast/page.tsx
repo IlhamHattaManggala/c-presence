@@ -111,24 +111,26 @@ export default function BroadcastAdminPage() {
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-[#E62020] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-4">
-          <div className="text-white"><Radio size={40} /></div>
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-[#E62020] w-full flex items-center px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          <div className="text-white shrink-0"><Radio className="w-8 h-8 md:w-10 md:h-10" /></div>
           <div>
-            <h2 className="text-xl font-bold text-white tracking-wide leading-tight">Dokumen Presence Broadcast Pegawai</h2>
-            <p className="text-white font-bold opacity-90">PT KAI Commuter</p>
+            <h2 className="text-lg md:text-xl font-bold text-white tracking-wide leading-tight">Dokumen Presence Broadcast Pegawai</h2>
+            <p className="text-white text-xs md:text-sm font-bold opacity-90">PT KAI Commuter</p>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-10">
+      <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Sub Navigation Buttons */}
-          <div className="flex justify-end space-x-3 mb-6">
-            <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
-            <button onClick={() => router.push('/admin/dokumen/broadcast')} className="bg-brand-red text-white px-8 py-2 rounded-lg text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700">Broadcast</button>
-            <button onClick={() => router.push('/admin/dokumen/presensi')} className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
+          {/* Sub Navigation Buttons - Satu Baris Horizontal */}
+          <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide mb-6 py-2">
+             <div className="flex flex-nowrap gap-2">
+                <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
+                <button onClick={() => router.push('/admin/dokumen/broadcast')} className="shrink-0 bg-brand-red text-white px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700">Broadcast</button>
+                <button onClick={() => router.push('/admin/dokumen/presensi')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
+             </div>
           </div>
 
           {/* Search & Filter Toolbar */}
@@ -158,60 +160,97 @@ export default function BroadcastAdminPage() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-zinc-800">Informasi Pegawai</h3>
-            <button onClick={openAddModal} className="bg-brand-red text-white px-8 py-2.5 rounded-xl font-bold text-sm shadow-xl hover:bg-red-700 transition">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0 text-center md:text-left">
+            <h3 className="text-lg md:text-xl font-bold text-zinc-800">Informasi Pegawai</h3>
+            <button onClick={openAddModal} className="bg-brand-red text-white px-6 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-xl hover:bg-red-700 transition">
               Tambah Informasi Pegawai
             </button>
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-[32px] overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead className="text-zinc-500 border-b">
-                <tr>
-                  <th className="px-6 py-6 text-sm font-bold w-16">No</th>
-                  <th className="px-6 py-6 text-sm font-bold">Judul dan Keterangan Informasi</th>
-                  <th className="px-6 py-6 text-sm font-bold">Status</th>
-                  <th className="px-6 py-6 text-sm font-bold">Aksi</th>
-                  <th className="px-6 py-6 text-sm font-bold"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-50 text-sm">
-                {loading ? (
-                  <tr><td colSpan={5} className="py-20 text-center">
-                    <div className="flex flex-col items-center justify-center space-y-4">
-                      <div className="w-10 h-10 border-4 border-brand-red border-t-transparent rounded-full animate-spin"></div>
-                      <p className="text-zinc-500 font-medium">Memuat data broadcast...</p>
+          {/* Table / Card List */}
+          <div className="space-y-4">
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white rounded-[32px] overflow-hidden shadow-sm border border-zinc-100">
+               <table className="w-full text-left border-collapse">
+                 <thead className="text-zinc-500 border-b">
+                   <tr>
+                     <th className="px-6 py-6 text-sm font-bold w-16">No</th>
+                     <th className="px-6 py-6 text-sm font-bold">Judul dan Keterangan Informasi</th>
+                     <th className="px-6 py-6 text-sm font-bold">Status</th>
+                     <th className="px-6 py-6 text-sm font-bold">Aksi</th>
+                     <th className="px-6 py-6 text-sm font-bold"></th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-zinc-50 text-sm">
+                   {loading ? (
+                     <tr><td colSpan={5} className="py-20 text-center">
+                       <div className="flex flex-col items-center justify-center space-y-4">
+                         <div className="w-10 h-10 border-4 border-brand-red border-t-transparent rounded-full animate-spin"></div>
+                         <p className="text-zinc-500 font-medium">Memuat data broadcast...</p>
+                       </div>
+                     </td></tr>
+                   ) : broadcasts.length === 0 ? (
+                     <tr><td colSpan={5} className="py-20 text-center text-zinc-500 font-medium italic">Belum ada data broadcast.</td></tr>
+                   ) : (
+                     broadcasts.map((item, idx) => (
+                       <tr key={item.id} className="hover:bg-zinc-50/50 transition group">
+                         <td className="px-6 py-6 font-medium text-zinc-400">{idx + 1}</td>
+                         <td className="px-6 py-6 text-zinc-700 font-bold tracking-tight">{item.title}</td>
+                         <td className="px-6 py-6">
+                           <span className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${item.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
+                             {item.is_active ? 'Aktif' : 'Tidak Aktif'}
+                           </span>
+                         </td>
+                         <td className="px-6 py-6">
+                           <div className="flex items-center space-x-6">
+                             <button className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
+                             <button onClick={() => setIsEditModalOpen(true)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
+                             <button onClick={() => handleDelete(item.id)} className="text-[#8B0000] hover:scale-110 transition"><X size={18} /></button>
+                           </div>
+                         </td>
+                         <td className="px-6 py-6 text-right">
+                           <button className="text-zinc-300 hover:text-zinc-500 transition-colors"><Copy size={22} strokeWidth={1.5} /></button>
+                         </td>
+                       </tr>
+                     ))
+                   )}
+                 </tbody>
+               </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+               {loading ? (
+                 <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                   <div className="w-10 h-10 border-4 border-brand-red border-t-transparent rounded-full animate-spin"></div>
+                   <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Memuat...</p>
+                 </div>
+               ) : broadcasts.length === 0 ? (
+                 <div className="py-12 text-center text-zinc-400 font-bold text-xs uppercase tracking-wider">Belum ada broadcast.</div>
+               ) : (
+                 broadcasts.map((item, idx) => (
+                    <div key={item.id} className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm active:scale-[0.98] transition-all">
+                       <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 pr-4">
+                             <span className="text-[10px] font-bold text-zinc-400 mb-1 block uppercase tracking-tighter">Informasi #{idx + 1}</span>
+                             <h4 className="font-bold text-zinc-800 text-sm leading-tight line-clamp-2">{item.title}</h4>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase ${item.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
+                             {item.is_active ? 'Aktif' : 'Off'}
+                          </span>
+                       </div>
+                       <div className="flex justify-between items-center pt-4 border-t border-zinc-50">
+                          <div className="flex items-center space-x-4">
+                             <button className="text-green-600"><Eye size={18}/></button>
+                             <button onClick={() => setIsEditModalOpen(true)} className="text-orange-400"><Edit3 size={18}/></button>
+                             <button onClick={() => handleDelete(item.id)} className="text-red-600"><X size={16} /></button>
+                          </div>
+                          <button className="text-zinc-300"><Copy size={18}/></button>
+                       </div>
                     </div>
-                  </td></tr>
-                ) : broadcasts.length === 0 ? (
-                  <tr><td colSpan={5} className="py-20 text-center text-zinc-500 font-medium italic">Belum ada data broadcast.</td></tr>
-                ) : (
-                  broadcasts.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-zinc-50/50 transition group">
-                      <td className="px-6 py-6 font-medium text-zinc-400">{idx + 1}</td>
-                      <td className="px-6 py-6 text-zinc-700 font-bold tracking-tight">{item.title}</td>
-                      <td className="px-6 py-6">
-                        <span className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${item.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
-                          {item.is_active ? 'Aktif' : 'Tidak Aktif'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-6">
-                        <div className="flex items-center space-x-6">
-                          <button className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
-                          <button onClick={() => setIsEditModalOpen(true)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
-                          <button onClick={() => handleDelete(item.id)} className="text-[#8B0000] hover:scale-110 transition"><X size={18} /></button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-6 text-right">
-                        <button className="text-zinc-300 hover:text-zinc-500 transition-colors"><Copy size={22} strokeWidth={1.5} /></button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                 ))
+               )}
+            </div>
           </div>
         </div>
       </div>

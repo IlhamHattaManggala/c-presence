@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FileText, Plus, Search, Edit3, Eye, Trash2, X, Download, FileSpreadsheet, ChevronRight, Send, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
+import * as XLSX from 'xlsx'
 
 export default function PendaftaranPegawaiPage() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function PendaftaranPegawaiPage() {
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
   })
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchEmployees()
@@ -52,70 +54,151 @@ export default function PendaftaranPegawaiPage() {
   }
 
   const handleDownloadTemplate = () => {
-    setModal({ isOpen: true, status: 'loading', message: 'Menyiapkan template excel...' })
-    setTimeout(() => {
-      window.open('https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', '_blank')
-      setModal({ isOpen: true, status: 'success', message: 'Template berhasil diunduh!' })
-    }, 1000)
+    // Path langsung ke file di folder public
+    const templateUrl = '/file/Format Excel Pendaftaran Pegawai.xlsx'
+    
+    // Buat link temporary untuk trigger download
+    const link = document.createElement('a')
+    link.href = templateUrl
+    link.download = 'Format Excel Pendaftaran Pegawai.xlsx'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    setModal({ isOpen: true, status: 'success', message: 'Template berhasil diunduh!' })
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setModal({ isOpen: true, status: 'loading', message: 'Membaca file excel...' })
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet)
+
+        if (json.length === 0) {
+          setModal({ isOpen: true, status: 'error', message: 'File excel kosong atau format tidak sesuai' })
+          return
+        }
+
+        setModal({ isOpen: true, status: 'loading', message: `Sedang memproses ${json.length} data pegawai...` })
+
+        // 1. Ambil data stasiun untuk mapping nama -> id
+        const { data: stations } = await supabase.from('stations').select('id, name')
+        const stationMap = new Map(stations?.map(s => [String(s.name).toLowerCase().trim(), s.id]))
+
+        // 2. Mapping data dari Excel ke struktur Database
+        const mappedData = json.map((item: any) => {
+           const stationName = String(item['Stasiun'] || '').toLowerCase().trim()
+           return {
+              email: item['Email'] || '',
+              nik: String(item['NIK'] || item['ID/NIK'] || ''),
+              full_name: item['Nama'] || item['Nama Lengkap'] || '',
+              position: item['Posisi'] || item['Jabatan'] || '',
+              phone_number: String(item['Nomor Hp'] || item['Phone'] || ''),
+              station_id: stationMap.get(stationName) || null,
+              shift_code: String(item['Kode Dinas'] || item['Kode Dinasan'] || '').toUpperCase(),
+              role: 'user'
+           }
+        })
+
+        // 3. Masukkan ke Database
+        const { error } = await supabase.from('users').insert(mappedData)
+
+        if (error) {
+           console.error('Insert error:', error)
+           throw new Error(error.message)
+        }
+
+        setModal({ isOpen: true, status: 'success', message: `Berhasil menambahkan ${mappedData.length} pegawai dari Excel!` })
+        fetchEmployees()
+        
+        // Reset input file
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        
+      } catch (err: any) {
+        console.error('Import error:', err)
+        setModal({ isOpen: true, status: 'error', message: 'Gagal mengimpor data: ' + err.message })
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    }
+    reader.readAsArrayBuffer(file)
   }
 
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="h-24 bg-[#E62020] w-full flex items-center px-10 shrink-0">
-        <div className="flex items-center space-x-4">
-          <button onClick={() => router.back()} className="text-white p-2 hover:bg-white/10 rounded-full transition">
-             <FileText size={40} />
+      <div className="h-auto py-6 md:h-24 md:py-0 bg-[#E62020] w-full flex items-center px-6 md:px-10 pr-16 md:pr-10 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          <button onClick={() => router.back()} className="text-white p-1.5 md:p-2 hover:bg-white/10 rounded-full transition shrink-0">
+             <FileText className="w-8 h-8 md:w-10 md:h-10" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-white tracking-wide leading-tight">Dokumen Presence Pendaftaran Pegawai</h2>
-            <p className="text-white font-bold opacity-90">PT KAI Commuter</p>
+            <h2 className="text-lg md:text-xl font-bold text-white tracking-wide leading-tight">Dokumen Presence Pendaftaran Pegawai</h2>
+            <p className="text-white text-xs md:text-sm font-bold opacity-90">PT KAI Commuter</p>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-10">
+      <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
         <div className="max-w-7xl mx-auto space-y-10">
           
-          {/* Sub Navigation Buttons */}
-          <div className="flex justify-end items-center space-x-3 mb-6">
-             <div className="flex space-x-3">
+          {/* Sub Navigation Buttons - Satu Baris Horizontal */}
+          <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide mb-6 py-2">
+             <div className="flex flex-nowrap gap-2">
                 <button 
                   onClick={() => router.push('/admin/dokumen/pendaftaran')}
-                  className="bg-brand-red text-white px-8 py-2 rounded-lg text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700"
+                  className="shrink-0 bg-brand-red text-white px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700"
                 >
                   Pendaftaran
                 </button>
                 <button 
                   onClick={() => router.push('/admin/dokumen/broadcast')}
-                  className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50"
+                  className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50"
                 >
                   Broadcast
                 </button>
                 <button 
                   onClick={() => router.push('/admin/dokumen/presensi')}
-                  className="bg-white text-zinc-600 border border-brand-red px-8 py-2 rounded-lg text-xs font-bold transition-all hover:bg-red-50"
+                  className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50"
                 >
                   Dokumen Presensi
                 </button>
              </div>
           </div>
 
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-center md:justify-end mb-8 md:mb-10">
              <button 
                onClick={() => setIsSopModalOpen(true)}
                className="flex items-center space-x-2 border-2 border-[#B71C1C] px-5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 transition group"
              >
-                <Plus size={18} className="text-[#B71C1C] group-hover:scale-110 transition" />
-                <span className="text-[13px] font-bold text-[#B71C1C]">Edit Dokumen SOP</span>
+                <Plus size={16} className="text-[#B71C1C] group-hover:scale-110 transition shrink-0" />
+                <span className="text-[11px] md:text-[13px] font-bold text-[#B71C1C]">Edit Dokumen SOP</span>
              </button>
           </div>
 
           {/* Upload Section */}
           <div className="flex flex-col items-center">
              <h3 className="text-lg font-bold text-zinc-800 mb-6">Upload File Excel Pegawai</h3>
-             <div className="w-full max-w-xl h-48 border-4 border-dashed border-zinc-200 rounded-[32px] flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-50 transition-all group">
+             <input 
+               type="file" 
+               ref={fileInputRef}
+               onChange={handleFileUpload}
+               accept=".xlsx, .xls"
+               className="hidden"
+             />
+             <div 
+               onClick={() => fileInputRef.current?.click()}
+               className="w-full max-w-xl h-48 border-4 border-dashed border-zinc-200 rounded-[32px] flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-50 transition-all group"
+             >
                 <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:bg-red-50 group-hover:text-brand-red transition">
                    <Plus size={40} />
                 </div>
@@ -129,62 +212,116 @@ export default function PendaftaranPegawaiPage() {
               </button>
           </div>
 
-          {/* Table Section */}
-          <div className="bg-white border border-zinc-300 rounded-lg overflow-hidden">
-             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1200px]">
-                   <thead className="bg-[#B71C1C] text-white">
-                      <tr className="divide-x divide-zinc-700/50">
-                         <th className="px-2 py-5 text-sm font-bold w-12 text-center">No</th>
-                         <th className="px-4 py-5 text-sm font-bold text-center">Email</th>
-                         <th className="px-4 py-5 text-sm font-bold w-32 text-center">ID/NIK</th>
-                         <th className="px-4 py-5 text-sm font-bold w-48 text-center">Nama</th>
-                         <th className="px-4 py-5 text-sm font-bold w-48 text-center">Posisi</th>
-                         <th className="px-4 py-5 text-sm font-bold w-40 text-center">Nomor Hp</th>
-                         <th className="px-4 py-5 text-sm font-bold w-32 text-center">Stasiun</th>
-                         <th className="px-4 py-5 text-sm font-bold w-32 text-center">Kode Dinasan</th>
-                         <th className="px-2 py-5 text-sm font-bold w-24 text-center">Aksi</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-zinc-300">
-                      {loading ? (
-                         <tr>
-                            <td colSpan={9} className="py-20 text-center">
-                               <div className="flex flex-col items-center justify-center space-y-4">
-                                  <div className="w-10 h-10 border-4 border-[#B71C1C] border-t-transparent rounded-full animate-spin"></div>
-                                  <p className="text-zinc-500 font-medium text-sm">Memuat data pegawai...</p>
-                               </div>
-                            </td>
+          {/* Table / Card List Section */}
+          <div className="space-y-4">
+             {/* Desktop Table View */}
+             <div className="hidden md:block bg-white border border-zinc-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                   <table className="w-full text-left border-collapse min-w-[1200px]">
+                      <thead className="bg-[#B71C1C] text-white">
+                         <tr className="divide-x divide-zinc-700/50">
+                            <th className="px-2 py-5 text-sm font-bold w-12 text-center">No</th>
+                            <th className="px-4 py-5 text-sm font-bold text-center">Email</th>
+                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">ID/NIK</th>
+                            <th className="px-4 py-5 text-sm font-bold w-48 text-center">Nama</th>
+                            <th className="px-4 py-5 text-sm font-bold w-48 text-center">Posisi</th>
+                            <th className="px-4 py-5 text-sm font-bold w-40 text-center">Nomor Hp</th>
+                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">Stasiun</th>
+                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">Kode Dinasan</th>
+                            <th className="px-2 py-5 text-sm font-bold w-24 text-center">Aksi</th>
                          </tr>
-                      ) : employees.length === 0 ? (
-                         <tr>
-                            <td colSpan={9} className="py-20 text-center text-zinc-500 font-medium italic text-sm">
-                               Belum ada data pegawai.
-                            </td>
-                         </tr>
-                      ) : (
-                         employees.map((row, idx) => (
-                            <tr key={row.id} className="divide-x divide-zinc-300 hover:bg-zinc-50 transition text-zinc-600">
-                               <td className="px-2 py-4 text-center font-medium text-zinc-500">{idx + 1}</td>
-                               <td className="px-4 py-4 text-sm truncate">{row.email}</td>
-                               <td className="px-4 py-4 text-sm">{row.nik}</td>
-                               <td className="px-4 py-4 text-sm font-bold text-zinc-800">{row.full_name}</td>
-                               <td className="px-4 py-4 text-sm">{row.position}</td>
-                               <td className="px-4 py-4 text-sm">{row.phone_number}</td>
-                               <td className="px-4 py-4 text-sm">{row.stations?.name || '-'}</td>
-                               <td className="px-4 py-4 text-center text-sm font-bold">{row.shift_code || '-'}</td>
-                               <td className="px-2 py-4">
-                                  <div className="flex items-center justify-center space-x-4">
-                                     <button onClick={() => { setIsEditModalOpen(true); }} className="text-orange-400 hover:scale-110 transition"><Edit3 size={18}/></button>
-                                     <button onClick={() => handleDelete(row.id)} className="text-[#8B0000] hover:scale-110 transition"><Trash2 size={18} /></button>
-                                     <button className="text-[#8B0000] hover:scale-110 transition"><Send size={16} className="rotate-[-10deg]" /></button>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-300">
+                         {loading ? (
+                            <tr>
+                               <td colSpan={9} className="py-20 text-center">
+                                  <div className="flex flex-col items-center justify-center space-y-4">
+                                     <div className="w-10 h-10 border-4 border-[#B71C1C] border-t-transparent rounded-full animate-spin"></div>
+                                     <p className="text-zinc-500 font-medium text-sm">Memuat data pegawai...</p>
                                   </div>
                                </td>
                             </tr>
-                         ))
-                      )}
-                   </tbody>
-                </table>
+                         ) : employees.length === 0 ? (
+                            <tr>
+                               <td colSpan={9} className="py-20 text-center text-zinc-500 font-medium italic text-sm">
+                                  Belum ada data pegawai.
+                               </td>
+                            </tr>
+                         ) : (
+                            employees.map((row, idx) => (
+                               <tr key={row.id} className="divide-x divide-zinc-300 hover:bg-zinc-50 transition text-zinc-600">
+                                  <td className="px-2 py-4 text-center font-medium text-zinc-500">{idx + 1}</td>
+                                  <td className="px-4 py-4 text-sm truncate">{row.email}</td>
+                                  <td className="px-4 py-4 text-sm">{row.nik}</td>
+                                  <td className="px-4 py-4 text-sm font-bold text-zinc-800">{row.full_name}</td>
+                                  <td className="px-4 py-4 text-sm">{row.position}</td>
+                                  <td className="px-4 py-4 text-sm">{row.phone_number}</td>
+                                  <td className="px-4 py-4 text-sm">{row.stations?.name || '-'}</td>
+                                  <td className="px-4 py-4 text-center text-sm font-bold">{row.shift_code || '-'}</td>
+                                  <td className="px-2 py-4">
+                                     <div className="flex items-center justify-center space-x-4">
+                                        <button onClick={() => { setIsEditModalOpen(true); }} className="text-orange-400 hover:scale-110 transition"><Edit3 size={18}/></button>
+                                        <button onClick={() => handleDelete(row.id)} className="text-[#8B0000] hover:scale-110 transition"><Trash2 size={18} /></button>
+                                        <button className="text-[#8B0000] hover:scale-110 transition"><Send size={16} className="rotate-[-10deg]" /></button>
+                                     </div>
+                                  </td>
+                               </tr>
+                            ))
+                         )}
+                      </tbody>
+                   </table>
+                </div>
+             </div>
+
+             {/* Mobile Card View */}
+             <div className="md:hidden space-y-4">
+                {loading ? (
+                   <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                      <div className="w-10 h-10 border-4 border-[#B71C1C] border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Memuat Data...</p>
+                   </div>
+                ) : employees.length === 0 ? (
+                   <div className="py-12 text-center text-zinc-400 font-bold text-xs uppercase italic tracking-wider">
+                      Belum ada data pegawai.
+                   </div>
+                ) : (
+                   employees.map((row, idx) => (
+                      <div key={row.id} className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm active:scale-[0.98] transition-all">
+                         <div className="flex justify-between items-start mb-4">
+                            <div>
+                               <span className="text-[10px] font-bold text-zinc-400 mb-1 block uppercase tracking-tighter">Pegawai #{idx + 1}</span>
+                               <h4 className="font-extrabold text-zinc-800 text-base leading-tight uppercase">{row.full_name}</h4>
+                               <p className="text-brand-red font-bold text-[11px] uppercase">{row.position}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                               <button onClick={() => setIsEditModalOpen(true)} className="p-2 bg-orange-50 text-orange-500 rounded-lg"><Edit3 size={16}/></button>
+                               <button onClick={() => handleDelete(row.id)} className="p-2 bg-red-50 text-[#B71C1C] rounded-lg"><Trash2 size={16}/></button>
+                            </div>
+                         </div>
+                         
+                         <div className="grid grid-cols-2 gap-y-3 pt-4 border-t border-zinc-50">
+                            <div>
+                               <p className="text-[9px] font-bold text-zinc-400 uppercase">NIK / ID</p>
+                               <p className="text-xs font-bold text-zinc-700">{row.nik}</p>
+                            </div>
+                            <div>
+                               <p className="text-[9px] font-bold text-zinc-400 uppercase">Stasiun</p>
+                               <p className="text-xs font-bold text-zinc-700">{row.stations?.name || '-'}</p>
+                            </div>
+                            <div>
+                               <p className="text-[9px] font-bold text-zinc-400 uppercase">Kode Dinas</p>
+                               <p className="text-xs font-black text-brand-red uppercase">{row.shift_code || '-'}</p>
+                            </div>
+                            <div className="flex justify-end items-end">
+                               <button className="flex items-center space-x-1.5 text-brand-red font-bold text-[10px] bg-red-50 px-3 py-1.5 rounded-full">
+                                  <Send size={10} className="rotate-[-10deg]"/>
+                                  <span>KIRIM</span>
+                               </button>
+                            </div>
+                         </div>
+                      </div>
+                   ))
+                )}
              </div>
           </div>
       </div>

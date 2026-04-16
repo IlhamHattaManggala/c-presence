@@ -24,6 +24,7 @@ export default function Home() {
                 src="/images/logo splash.png" 
                 alt="C Presence Logo" 
                 fill
+                sizes="208px"
                 className="object-contain"
                 priority
              />

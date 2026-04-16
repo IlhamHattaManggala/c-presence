@@ -18,7 +18,8 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     setLoading(true)
-    const today = new Date().toISOString().split('T')[0]
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     
     // 1. Fetch Recent Presence
     const { data: attendance } = await supabase
@@ -50,48 +51,47 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-white">
+    <div className="h-full flex flex-col overflow-y-auto bg-white scrollbar-hide">
       {/* Header */}
-      <div className="h-28 bg-[#E62020] w-full flex items-center justify-between px-10 shrink-0">
-         <div className="flex items-center space-x-4">
-            <div className="text-white">
-               <Home size={40} />
+      <div className="min-h-[140px] md:h-28 bg-[#E62020] w-full flex flex-col md:flex-row items-center justify-between px-6 md:px-10 pr-16 md:pr-10 py-6 md:py-0 shrink-0">
+         <div className="flex items-center space-x-4 w-full md:w-auto">
+            <div className="text-white hidden sm:block">
+               <Home size={32} />
             </div>
-            <div className="text-white">
-               <h2 className="text-2xl font-bold tracking-wide">Beranda Presence</h2>
-               <p className="opacity-90 font-medium">
+            <div className="text-white flex-1 md:flex-none">
+               <h2 className="text-lg md:text-2xl font-bold tracking-wide">Beranda Presence</h2>
+               <p className="opacity-90 font-medium text-[10px] md:text-sm">
                   {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                </p>
             </div>
          </div>
-         <div className="flex items-center space-x-6">
-            <div className="flex space-x-3">
+         <div className="flex items-center justify-between md:justify-end w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t border-white/10 md:border-t-0 space-x-6">
+            <div className="flex items-center space-x-3">
                 <div 
                   onClick={() => router.push('/admin/notifikasi')}
-                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#E62020] cursor-pointer hover:bg-zinc-100 shadow-sm transition"
+                  className="w-9 h-9 md:w-10 md:h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white cursor-pointer transition shadow-sm"
                 >
-                   <Bell size={20} fill="currentColor" />
+                   <Bell size={18} />
                 </div>
                <div 
                  onClick={() => router.push('/admin/profile')}
-                 className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#E62020] cursor-pointer hover:bg-zinc-100 shadow-sm transition"
+                 className="w-9 h-9 md:w-10 md:h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white cursor-pointer transition shadow-sm"
                >
-                  <UserIcon size={20} fill="currentColor" />
+                  <UserIcon size={18} />
                </div>
             </div>
             <div className="text-right text-white leading-tight">
-               <p className="font-bold text-sm">Admin Commuter</p>
-               <p className="text-xs opacity-90">System Administrator</p>
+               <p className="font-bold text-xs md:text-sm">Admin Commuter</p>
+               <p className="text-[10px] opacity-80 font-medium">System Administrator</p>
             </div>
          </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-10">
-         <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 max-w-7xl mx-auto">
+      <div className="flex-1 p-6 md:p-10">
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10 max-w-7xl mx-auto">
             
             {/* Left Column (Presence Progress) */}
-            <div className="xl:col-span-7 flex flex-col">
+            <div className="lg:col-span-7 flex flex-col">
                <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-zinc-800">Presence progress</h3>
                   <button onClick={() => fetchDashboardData()} className="bg-[#E62020] text-white px-6 py-1.5 rounded-full text-xs font-bold hover:bg-red-700 transition shadow-sm">Refresh</button>
@@ -110,7 +110,7 @@ export default function AdminDashboardPage() {
                      </div>
                   ) : (
                      presenceData.map((person) => (
-                       <div key={person.id} className="flex items-center justify-between p-3 border border-brand-red/30 rounded-2xl bg-white shadow-sm hover:shadow-md transition">
+                       <div key={person.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-brand-red/30 rounded-2xl bg-white shadow-sm hover:shadow-md transition gap-4 sm:gap-0">
                           <div className="flex items-center space-x-4">
                              <div className="w-12 h-12 rounded-full border-2 border-brand-red flex items-center justify-center text-brand-red">
                                 <UserIcon size={24} fill="currentColor" />
@@ -134,7 +134,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Right Column (Calendar & Stats) */}
-            <div className="xl:col-span-5 flex flex-col space-y-10">
+            <div className="lg:col-span-5 flex flex-col space-y-10">
                
                {/* Calendar Card */}
                <div className="bg-white border border-brand-red/20 rounded-3xl p-6 shadow-xl shadow-brand-red/5">

@@ -33,22 +33,19 @@ export default function UserProfile() {
           .from('users')
           .select('*, stations(*)')
           .eq('id', user.id)
-          .single()
+          .maybeSingle() // Gunakan maybeSingle agar tidak error jika data kosong
         
         if (error) {
           setModal({ 
             isOpen: true, 
             status: 'error', 
-            message: `Gagal mengambil data: ${error.message}. ${error.hint || ''}` 
+            message: `Gagal mengambil data: ${error.message}.` 
           })
           console.error("Database Error:", error)
         }
-        setUserData(profile)
-
-        const { data: stationsData } = await supabase.from('stations').select('*')
-        if (stationsData) setStations(stationsData)
 
         if (profile) {
+          setUserData(profile)
           setEditForm({
             full_name: profile.full_name || '',
             phone_number: profile.phone_number || '',
@@ -56,10 +53,28 @@ export default function UserProfile() {
             position: profile.position || '',
             shift_code: profile.shift_code || '',
             station_id: profile.station_id || '',
-            email: profile.email || '',
+            email: profile.email || user.email || '',
             password: ''
           })
+        } else {
+          // Fallback untuk user baru (Google Login)
+          const fallbackData = {
+            id: user.id, // Pastikan ID ada untuk update nanti
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+            email: user.email,
+            position: 'Karyawan Baru',
+            phone_number: '',
+            nik: '',
+            shift_code: '',
+            station_id: '',
+            role: 'user'
+          }
+          setUserData(fallbackData)
+          setEditForm(fallbackData)
         }
+
+        const { data: stationsData } = await supabase.from('stations').select('*')
+        if (stationsData) setStations(stationsData)
       } else {
         router.push('/users/login')
       }
@@ -74,17 +89,17 @@ export default function UserProfile() {
     try {
       const { error } = await supabase
         .from('users')
-        .update({
+        .upsert({
+          id: userData.id,
           full_name: editForm.full_name,
           phone_number: editForm.phone_number,
           nik: editForm.nik,
           position: editForm.position,
           station_id: editForm.station_id || null,
-          shift_code: editForm.shift_code,
-          email: editForm.email
+          shift_code: editForm.shift_code || null,
+          email: editForm.email,
+          role: userData.role || 'user'
         })
-        
-        .eq('id', userData.id)
         
       if (error) throw error
 

@@ -38,6 +38,19 @@ export default function UserLoginPage() {
     setLoading(false)
   }
 
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/users/dashboard`,
+      },
+    })
+
+    if (error) {
+       setModal({ isOpen: true, status: 'error', message: 'Google Login Gagal: ' + error.message })
+    }
+  }
+
   const handleCloseModal = () => {
     setModal({ ...modal, isOpen: false })
   }
@@ -51,6 +64,7 @@ export default function UserLoginPage() {
             src="/images/Logo Login.png" 
             alt="Illustration" 
             fill
+            sizes="(max-width: 768px) 100vw, 500px"
             className="object-contain"
             priority
           />
@@ -87,15 +101,20 @@ export default function UserLoginPage() {
               />
             </div>
 
-            <div className="flex items-center space-x-3 pt-2">
-              <input 
-                type="checkbox" 
-                id="remember"
-                className="w-6 h-6 border-zinc-300 rounded text-brand-red focus:ring-brand-red cursor-pointer" 
-              />
-              <label htmlFor="remember" className="text-lg text-black font-medium cursor-pointer">
-                Ingat Saya
-              </label>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center space-x-3">
+                <input 
+                  type="checkbox" 
+                  id="remember"
+                  className="w-6 h-6 border-zinc-300 rounded text-brand-red focus:ring-brand-red cursor-pointer" 
+                />
+                <label htmlFor="remember" className="text-lg text-black font-medium cursor-pointer">
+                  Ingat Saya
+                </label>
+              </div>
+              <Link href="/users/forgot-password" size="sm" className="text-brand-red font-semibold hover:underline">
+                Lupa Password?
+              </Link>
             </div>
 
             <div className="space-y-4 pt-4">
@@ -109,6 +128,7 @@ export default function UserLoginPage() {
 
               <button 
                 type="button"
+                onClick={handleGoogleLogin}
                 className="w-full h-14 bg-white border border-brand-red text-black text-lg font-medium rounded-xl flex items-center justify-center space-x-3 hover:bg-zinc-50 transition-colors"
               >
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
