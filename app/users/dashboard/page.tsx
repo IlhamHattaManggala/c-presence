@@ -186,21 +186,21 @@ export default function UserDashboard() {
 
           {/* Right Column: Banner & Menus (Span 8 on Desktop) */}
           <div className="lg:col-span-8 flex flex-col space-y-8">
-            {/* Banner Section */}
-            <div className="w-full h-56 lg:h-80 relative rounded-[32px] overflow-hidden shadow-2xl group">
-                <Image 
-                  src="/images/hero-images.webp" 
-                  alt="KAI Train" 
-                  fill 
-                  sizes="(max-width: 768px) 100vw, 850px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-6 left-8 text-white">
-                   <p className="text-sm font-medium opacity-80 mb-1">KAI Commuter Indonesia</p>
-                   <h3 className="text-xl lg:text-2xl font-bold">Layanan Presensi Digital Terintegrasi</h3>
-                </div>
-            </div>
+             {/* Banner Section */}
+             <div className="w-full aspect-[666/292] lg:aspect-auto lg:h-80 relative rounded-[32px] overflow-hidden shadow-2xl group">
+                 <Image 
+                   src="/images/hero-images.webp" 
+                   alt="KAI Train" 
+                   fill 
+                   sizes="(max-width: 768px) 100vw, 850px"
+                   className="object-cover group-hover:scale-105 transition-transform duration-700"
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                 <div className="absolute bottom-4 left-6 sm:bottom-6 sm:left-8 text-white">
+                    <p className="text-xs sm:text-sm font-medium opacity-80 mb-0.5 sm:mb-1">KAI Commuter Indonesia</p>
+                    <h3 className="text-sm sm:text-xl lg:text-2xl font-bold">Layanan Presensi Digital Terintegrasi</h3>
+                 </div>
+             </div>
 
             {/* Menu Grid */}
             <div className="bg-white rounded-[32px] p-8 lg:p-10 shadow-sm border border-zinc-100 flex-1">
