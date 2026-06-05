@@ -166,7 +166,7 @@ export default function MasterDataPage() {
   const openAddForm = () => {
     setEditingId(null)
     if (activeTab === 'STASIUN') {
-       setFormData({ name: '', latitude: -6.4025, longitude: 106.8197 })
+       setFormData({ name: '', latitude: -6.4025, longitude: 106.8197, radius_meters: 600 })
     } else if (activeTab === 'SHIFT') {
        setFormData({ code: '', description: '', start_time: '', end_time: '' })
     } else {
@@ -352,16 +352,27 @@ export default function MasterDataPage() {
              <form onSubmit={handleSave} className="space-y-5">
                 {activeTab === 'STASIUN' ? (
                    <>
-                     <div className="space-y-2">
-                       <label className="text-sm font-bold text-zinc-700">Nama Stasiun</label>
-                       <input 
-                         required
-                         type="text" 
-                         value={formData.name || ''}
-                         onChange={e => setFormData({...formData, name: e.target.value})}
-                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
-                         placeholder="Contoh: Stasiun Bogor"
-                       />
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">Nama Stasiun</label>
+                        <input 
+                          required
+                          type="text" 
+                          value={formData.name || ''}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
+                          placeholder="Contoh: Stasiun Bogor"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">Radius Presensi (Meter)</label>
+                        <input 
+                          required
+                          type="number" 
+                          value={formData.radius_meters !== undefined && formData.radius_meters !== null ? formData.radius_meters : 600}
+                          onChange={e => setFormData({...formData, radius_meters: parseInt(e.target.value) || 600})}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
+                          placeholder="Contoh: 600"
+                        />
                      </div>
                      <div className="space-y-2">
                        <label className="text-sm font-bold text-zinc-700 block mb-1">Lokasi Stasiun Pada Peta</label>
@@ -396,20 +407,32 @@ export default function MasterDataPage() {
                              )}
                           </Map>
                        </div>
-                       <div className="grid grid-cols-2 gap-3 pt-1">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Latitude</span>
-                            <div className="w-full h-9 bg-zinc-100 border border-zinc-200 rounded-lg px-3 flex items-center shadow-inner">
-                              <span className="text-xs font-mono font-medium text-zinc-600">{formData.latitude || '-'}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Longitude</span>
-                            <div className="w-full h-9 bg-zinc-100 border border-zinc-200 rounded-lg px-3 flex items-center shadow-inner">
-                              <span className="text-xs font-mono font-medium text-zinc-600">{formData.longitude || '-'}</span>
-                            </div>
-                          </div>
-                       </div>
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                           <div className="space-y-1">
+                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Latitude</label>
+                             <input 
+                               type="number"
+                               step="any"
+                               required
+                               value={formData.latitude !== undefined && formData.latitude !== null ? formData.latitude : ''}
+                               onChange={e => setFormData({...formData, latitude: parseFloat(e.target.value) || 0})}
+                               className="w-full h-10 bg-zinc-50 border border-zinc-200 rounded-lg px-3 text-xs font-mono font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+                               placeholder="-6.1234"
+                             />
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Longitude</label>
+                             <input 
+                               type="number"
+                               step="any"
+                               required
+                               value={formData.longitude !== undefined && formData.longitude !== null ? formData.longitude : ''}
+                               onChange={e => setFormData({...formData, longitude: parseFloat(e.target.value) || 0})}
+                               className="w-full h-10 bg-zinc-50 border border-zinc-200 rounded-lg px-3 text-xs font-mono font-medium text-zinc-800 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+                               placeholder="106.1234"
+                             />
+                           </div>
+                        </div>
                      </div>
                    </>
                 ) : activeTab === 'SHIFT' ? (

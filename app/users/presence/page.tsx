@@ -147,7 +147,7 @@ export default function PresencePage() {
       setDistance(Math.round(closestDist))
 
       // Pindah ke kamera jika dalam radius stasiun terdekat
-      if (closest && closestDist <= (closest.radius_meters || 100)) {
+      if (closest && closestDist <= (closest.radius_meters || 600)) {
         setViewMode('camera')
       }
     }
@@ -440,14 +440,14 @@ export default function PresencePage() {
         </div>
 
         {/* Status Bottom Overlay - Tampil jika di luar radius stasiun terdekat */}
-        {!isGettingLocation && nearestStation && distance !== null && distance > (nearestStation.radius_meters || 100) && (
+        {!isGettingLocation && nearestStation && distance !== null && distance > (nearestStation.radius_meters || 600) && (
           <div className="absolute bottom-24 left-4 right-4 z-20 flex justify-center pointer-events-none">
               <div className="bg-white/95 backdrop-blur-md p-4 rounded-[24px] shadow-xl border border-red-100 text-center animate-in slide-in-from-bottom-5 w-full max-w-sm pointer-events-auto">
                 <p className="text-[9px] font-bold text-red-600 mb-1.5 bg-red-50 py-1 px-3 rounded-full inline-block">
                    DILUAR AREA ({distance > 1000 ? (distance / 1000).toFixed(1) + ' km' : distance + ' m'})
                 </p>
                 <h3 className="text-base font-bold text-zinc-800 mb-1">Anda Terlalu Jauh</h3>
-                <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 100} meter dari {nearestStation.name}.</p>
+                <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 600} meter dari {nearestStation.name}.</p>
               </div>
           </div>
         )}
