@@ -189,7 +189,7 @@ export default function UserDashboard() {
             {/* Banner Section */}
             <div className="w-full h-56 lg:h-80 relative rounded-[32px] overflow-hidden shadow-2xl group">
                 <Image 
-                  src="/images/BerandaUser.png" 
+                  src="/images/hero-images.webp" 
                   alt="KAI Train" 
                   fill 
                   sizes="(max-width: 768px) 100vw, 850px"
