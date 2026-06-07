@@ -65,7 +65,8 @@ export default function AdminLayout({
                 priority
               />
            </div>
-           <h1 className="text-xl font-bold tracking-wider">C Presence</h1>
+           <h1 className="text-xl font-bold tracking-wider mb-0.5">C Presence</h1>
+           <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest leading-none">PT KAI Commuter</span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-hide">

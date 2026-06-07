@@ -52,42 +52,52 @@ export async function bulkImportEmployees(employeesData: any[]) {
       errors: [] as string[]
     }
 
-    for (const data of employeesData) {
-      try {
-        // 1. Invite User by Email (This sends the official Supabase invitation email)
-        const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email)
-
-        if (inviteErr) {
-          results.failed++
-          results.errors.push(`${data.email}: ${inviteErr.message}`)
-          continue
-        }
-
-        if (inviteData.user) {
-          // 2. Insert into public.users
-          const { error: dbErr } = await supabaseAdmin.from('users').insert([{
-            id: inviteData.user.id,
+    const chunkSize = 20
+    for (let i = 0; i < employeesData.length; i += chunkSize) {
+      const chunk = employeesData.slice(i, i + chunkSize)
+      await Promise.all(chunk.map(async (data) => {
+        try {
+          // 1. Create Auth User directly (mark email as confirmed)
+          const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
             email: data.email,
-            nik: data.nik,
-            full_name: data.full_name,
-            position: data.position,
-            phone_number: data.phone_number,
-            station_id: data.station_id,
-            shift_code: data.shift_code,
-            role: 'user'
-          }])
+            password: 'password123',
+            email_confirm: true
+          })
 
-          if (dbErr) {
+          if (authErr) {
             results.failed++
-            results.errors.push(`${data.email} (DB): ${dbErr.message}`)
-          } else {
-            results.totalSuccess++
+            results.errors.push(`${data.email}: ${authErr.message}`)
+            return
           }
+
+          if (authUser.user) {
+            // 2. Insert into public.users
+            const { error: dbErr } = await supabaseAdmin.from('users').insert([{
+              id: authUser.user.id,
+              email: data.email,
+              nik: data.nik,
+              full_name: data.full_name,
+              position: data.position,
+              phone_number: data.phone_number,
+              station_id: data.station_id,
+              shift_code: data.shift_code,
+              role: 'user'
+            }])
+
+            if (dbErr) {
+              results.failed++
+              results.errors.push(`${data.email} (DB): ${dbErr.message}`)
+              // Clean up Auth user if DB insert fails
+              await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+            } else {
+              results.totalSuccess++
+            }
+          }
+        } catch (e: any) {
+          results.failed++
+          results.errors.push(`${data.email}: ${e.message}`)
         }
-      } catch (e: any) {
-        results.failed++
-        results.errors.push(`${data.email}: ${e.message}`)
-      }
+      }))
     }
 
     return { success: true, ...results }
@@ -95,3 +105,61 @@ export async function bulkImportEmployees(employeesData: any[]) {
     return { success: false, error: error.message }
   }
 }
+
+export async function createUserAction(userData: {
+  email: string
+  password?: string
+  full_name: string
+  nik?: string
+  role: 'user' | 'admin'
+  position?: string
+}) {
+  try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // 1. Create user in Auth using Admin API
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: userData.email,
+      password: userData.password || 'password123',
+      email_confirm: true
+    })
+
+    if (authError) {
+      return { success: false, error: authError.message }
+    }
+
+    if (authUser.user) {
+      // 2. Insert/Upsert user profile in public.users
+      const { error: dbError } = await supabaseAdmin.from('users').upsert({
+        id: authUser.user.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        nik: userData.nik || null,
+        role: userData.role || 'user',
+        position: userData.position || null
+      }, { onConflict: 'id' })
+
+      if (dbError) {
+        // Clean up Auth user if DB insert fails
+        await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+        return { success: false, error: dbError.message }
+      }
+
+      return { success: true, user: authUser.user }
+    }
+
+    return { success: false, error: 'Gagal membuat user' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+

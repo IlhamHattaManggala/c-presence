@@ -14,6 +14,25 @@ export default function InfoDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const markNotificationsAsRead = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+      } catch (err) {
+        console.error('Error marking notifications as read:', err)
+      }
+    }
+
+    markNotificationsAsRead()
+  }, [])
+
+  useEffect(() => {
     const fetchDetail = async () => {
       if (!id) return
       setLoading(true)

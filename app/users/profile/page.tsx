@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Camera, Bell, LogOut, ChevronRight, User, Image as ImageIcon, Camera as CameraIcon } from 'lucide-react'
+import { ChevronLeft, Bell, LogOut, ChevronRight, User, Image as ImageIcon, Camera as CameraIcon } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/client'
 
@@ -14,7 +14,7 @@ export default function UserProfile() {
   const [userData, setUserData] = React.useState<any>(null)
   const [editForm, setEditForm] = React.useState<any>({
     full_name: '', phone_number: '', nik: '', position: '', shift_code: '', station_id: '',
-    email: '', password: ''
+    email: '', password: '', dinasan_start_time: '', dinasan_end_time: ''
   })
   const [stations, setStations] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -23,7 +23,7 @@ export default function UserProfile() {
     status: 'loading',
     message: ''
   })
-  const supabase = createClient()
+  const supabase = React.useMemo(() => createClient(), [])
 
   React.useEffect(() => {
     const getUser = async () => {
@@ -54,7 +54,9 @@ export default function UserProfile() {
             shift_code: profile.shift_code || '',
             station_id: profile.station_id || '',
             email: profile.email || user.email || '',
-            password: ''
+            password: '',
+            dinasan_start_time: profile.dinasan_start_time || '',
+            dinasan_end_time: profile.dinasan_end_time || ''
           })
         } else {
           // Fallback untuk user baru (Google Login)
@@ -67,7 +69,9 @@ export default function UserProfile() {
             nik: '',
             shift_code: '',
             station_id: '',
-            role: 'user'
+            role: 'user',
+            dinasan_start_time: '',
+            dinasan_end_time: ''
           }
           setUserData(fallbackData)
           setEditForm(fallbackData)
@@ -81,7 +85,7 @@ export default function UserProfile() {
       setLoading(false)
     }
     getUser()
-  }, [])
+  }, [router, supabase])
 
   const handleUpdateProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -97,6 +101,8 @@ export default function UserProfile() {
           position: editForm.position,
           station_id: editForm.station_id || null,
           shift_code: editForm.shift_code || null,
+          dinasan_start_time: editForm.dinasan_start_time || null,
+          dinasan_end_time: editForm.dinasan_end_time || null,
           email: editForm.email,
           role: userData.role || 'user'
         })
@@ -194,6 +200,7 @@ export default function UserProfile() {
     { label: 'Posisi', value: userData?.position || '-' },
     { label: 'Stasiun', value: userData?.stations?.name || '-' },
     { label: 'Kode Dinas', value: userData?.shift_code || '-' },
+    { label: 'Jam Dinasan', value: (userData?.dinasan_start_time && userData?.dinasan_end_time) ? `${userData.dinasan_start_time.substring(0, 5)} - ${userData.dinasan_end_time.substring(0, 5)}` : '-' },
   ]
 
   const [isModalOpen, setIsModalOpen] = React.useState(false)
@@ -456,15 +463,38 @@ export default function UserProfile() {
                     className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all appearance-none"
                   >
                     <option value="">Pilih Kode Dinas</option>
-                    <option value="S">S</option>
+                    <option value="DP2">DP2</option>
+                    <option value="DP3">DP3</option>
+                    <option value="DS1">DS1</option>
+                    <option value="DS2">DS2</option>
                     <option value="DS5">DS5</option>
                     <option value="M">M</option>
-                    <option value="DP3">DP3</option>
-                    <option value="CS">CS</option>
                     <option value="L">L</option>
+                    <option value="CS">CS</option>
                     <option value="P">P</option>
                     <option value="J">J</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-zinc-700">Jam Dinas Masuk</label>
+                  <input 
+                    type="time" 
+                    value={editForm.dinasan_start_time}
+                    onChange={(e) => setEditForm({...editForm, dinasan_start_time: e.target.value})}
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-zinc-700">Jam Dinas Pulang</label>
+                  <input 
+                    type="time" 
+                    value={editForm.dinasan_end_time}
+                    onChange={(e) => setEditForm({...editForm, dinasan_end_time: e.target.value})}
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
+                  />
                 </div>
               </div>
 

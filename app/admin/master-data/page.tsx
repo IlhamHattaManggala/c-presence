@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { Map, Marker } from 'pigeon-maps'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { deleteUserAction } from '@/app/actions/user-actions'
+import { deleteUserAction, createUserAction } from '@/app/actions/user-actions'
 
 type TabType = 'STASIUN' | 'SHIFT' | 'USER'
 
@@ -117,41 +117,23 @@ export default function MasterDataPage() {
       const res = await supabase.from(table).update(payload).eq(pkCol, editingId)
       error = res.error
     } else {
-      let finalPayload = [payload]
-      
-      // If adding a new USER, attempt double registration (Auth + DB)
       if (activeTab === 'USER') {
-         try {
-           // We create a temporary client to avoid disrupting current Admin session
-           const { createClient: createClientJS } = await import('@supabase/supabase-js')
-           const tempSupabase = createClientJS(
-             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-             { auth: { persistSession: false } }
-           )
-
-           const { data: authResult, error: authErr } = await tempSupabase.auth.signUp({
-              email: formData.email,
-              password: formData.password || 'password123'
-           })
-
-           if (authErr) {
-              setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Auth: ' + authErr.message })
-              return
-           }
-
-           if (authResult.user) {
-              // Ensure the DB profile uses the same ID as the Auth user
-              payload.id = authResult.user.id
-              finalPayload = [payload]
-           }
-         } catch (e) {
-           console.error('Registration bypass error:', e)
-         }
+        const actionResult = await createUserAction({
+          email: formData.email,
+          password: formData.password,
+          full_name: formData.full_name,
+          nik: formData.nik,
+          role: formData.role || 'user',
+          position: formData.position
+        })
+        if (!actionResult.success) {
+          setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Pengguna: ' + actionResult.error })
+          return
+        }
+      } else {
+        const res = await supabase.from(table).insert([payload])
+        error = res.error
       }
-
-      const res = await supabase.from(table).insert(finalPayload)
-      error = res.error
     }
 
     if (error) {
@@ -286,6 +268,7 @@ export default function MasterDataPage() {
           </div>
           <div>
             <h2 className="text-lg md:text-2xl font-bold text-white tracking-wide leading-tight">Master Data</h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-0.5 mb-1">PT KAI Commuter</p>
             <p className="text-white/80 text-[10px] md:text-xs lg:text-sm font-medium leading-tight">Kelola Data Stasiun & Master Shift</p>
           </div>
         </div>
@@ -540,7 +523,7 @@ export default function MasterDataPage() {
                        <label className="text-sm font-bold text-zinc-700">Password</label>
                        <input 
                          required={!editingId}
-                         type="text" 
+                         type="password" 
                          value={formData.password || ''}
                          onChange={e => setFormData({...formData, password: e.target.value})}
                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"

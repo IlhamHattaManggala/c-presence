@@ -60,7 +60,10 @@ export default function AdminDokumenLanding() {
           <div className="text-white shrink-0">
             <FileText className="w-8 h-8 md:w-10 md:h-10" />
           </div>
-          <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide leading-tight">Dokumen Presence</h2>
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide leading-tight">Dokumen Presence</h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-1">PT KAI Commuter</p>
+          </div>
         </div>
       </div>
 

@@ -1,20 +1,49 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell } from 'lucide-react'
+import { Bell, ChevronLeft } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { createClient } from '@/lib/supabase/client'
 
 export default function NotifikasiMainPage() {
   const router = useRouter()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const markNotificationsAsRead = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+      } catch (err) {
+        console.error('Error marking notifications as read:', err)
+      }
+    }
+
+    markNotificationsAsRead()
+  }, [])
 
   return (
     <div className="bg-zinc-50 min-h-screen pb-32">
       {/* Header Area */}
       <div className="bg-brand-red pt-12 pb-12 w-full relative">
-        <div className="max-w-4xl mx-auto flex items-center px-4 w-full justify-center space-x-2">
-           <Bell className="text-white" size={30} />
-           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Notifikasi</h1>
+        <div className="max-w-4xl mx-auto flex items-center px-4 w-full relative">
+          <button 
+            onClick={() => router.push('/users/dashboard')}
+            className="absolute left-4 text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+          >
+            <ChevronLeft size={28} />
+          </button>
+          <div className="flex items-center justify-center mx-auto space-x-2">
+            <Bell className="text-white" size={30} />
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Notifikasi</h1>
+          </div>
         </div>
       </div>
 

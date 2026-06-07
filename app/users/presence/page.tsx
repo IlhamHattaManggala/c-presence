@@ -6,6 +6,7 @@ import { ChevronLeft, MapPin, Clock, Camera as CameraIcon, SwitchCamera, Zap, Al
 import { BottomNav } from '@/components/BottomNav'
 import { Map, Marker, Overlay } from 'pigeon-maps'
 import { createClient } from '@/lib/supabase/client'
+import { calculateAwalDinas, calculateAkhirDinas } from '@/lib/sla-helper'
 
 // Radius dan koordinat stasiun sekarang dinamis dari database
 // Tidak ada lagi hardcode atau bypass radius
@@ -179,46 +180,77 @@ export default function PresencePage() {
     const timeOnly = now.toLocaleTimeString('en-GB') // Format HH:mm:ss
 
     try {
+      if (!userData || !userData.dinasan_start_time || !userData.dinasan_end_time) {
+        setModal({ 
+          isOpen: true, 
+          status: 'error', 
+          message: 'Silakan atur Kode Dinasan dan Jam Dinasan Anda di profil terlebih dahulu sebelum melakukan presensi.' 
+        })
+        setIsSubmitting(false)
+        return
+      }
+
+      const nowHour = now.getHours()
+      const nowMin = now.getMinutes()
+      const nowMinutes = nowHour * 60 + nowMin
+
       if (todayAttendance) {
         if (todayAttendance.clock_out) {
           setModal({ isOpen: true, status: 'error', message: 'Anda sudah melakukan presensi pulang hari ini.' })
+          setIsSubmitting(false)
           return
         }
         
+        // Validasi Tap Out (Maks 1 jam setelah jam dinasan)
+        const [endHour, endMin] = userData.dinasan_end_time.split(':').map(Number)
+        const endMinutes = endHour * 60 + endMin
+        const timeDiffAfterEnd = nowMinutes - endMinutes // menit setelah pulang dinas
+
+        if (timeDiffAfterEnd > 60) {
+          setModal({ 
+            isOpen: true, 
+            status: 'error', 
+            message: `Presensi pulang hanya diperbolehkan maksimal 1 jam setelah jam dinasan (${userData.dinasan_end_time.substring(0, 5)}).` 
+          })
+          setIsSubmitting(false)
+          return
+        }
+
+        const minutesEarly = endMinutes - nowMinutes
+        const nilaiAkhir = calculateAkhirDinas(minutesEarly)
+        const totalSla = (todayAttendance.nilai_awal_dinas || 0) + nilaiAkhir
+
         // Clock Out
         const { error } = await supabase
           .from('attendance')
-          .update({ clock_out: timeOnly })
+          .update({ 
+            clock_out: timeOnly,
+            nilai_akhir_dinas: nilaiAkhir,
+            sla_harian: totalSla
+          })
           .eq('id', todayAttendance.id)
         
         if (error) throw error
-        setModal({ isOpen: true, status: 'success', message: 'Presensi pulang berhasil dicatat!' })
+        setModal({ isOpen: true, status: 'success', message: `Presensi pulang berhasil! Nilai Akhir: ${nilaiAkhir}, SLA Harian: ${totalSla}` })
       } else {
-        // Clock In
-        let status = 'Hadir'
-        
-        // 1. Dapatkan Jam Masuk dari Shift User
-        if (userData.shift_code) {
-          const { data: shiftData } = await supabase
-            .from('shifts')
-            .select('start_time')
-            .eq('code', userData.shift_code)
-            .single()
+        // Validasi Tap In (Maks 1 jam sebelum jam dinasan)
+        const [startHour, startMin] = userData.dinasan_start_time.split(':').map(Number)
+        const startMinutes = startHour * 60 + startMin
+        const timeDiffBeforeStart = startMinutes - nowMinutes // menit sebelum mulai dinas
 
-          if (shiftData && shiftData.start_time) {
-            // Bandingkan waktu sekarang dengan start_time (format HH:mm:ss)
-            const [shiftHour, shiftMin] = shiftData.start_time.split(':').map(Number)
-            const nowHour = now.getHours()
-            const nowMin = now.getMinutes()
-
-            if (nowHour > shiftHour || (nowHour === shiftHour && nowMin > shiftMin)) {
-              status = 'Telat'
-            }
-          }
-        } else {
-          // Fallback jika tidak ada kode shift (default jam 08:00)
-          if (now.getHours() >= 8) status = 'Telat'
+        if (timeDiffBeforeStart > 60) {
+          setModal({ 
+            isOpen: true, 
+            status: 'error', 
+            message: `Presensi masuk hanya diperbolehkan maksimal 1 jam sebelum jam dinasan (${userData.dinasan_start_time.substring(0, 5)}).` 
+          })
+          setIsSubmitting(false)
+          return
         }
+
+        const minutesLate = nowMinutes - startMinutes
+        const nilaiAwal = calculateAwalDinas(minutesLate)
+        const status = minutesLate > 0 ? 'Telat' : 'Tepat Waktu'
 
         const { error } = await supabase
           .from('attendance')
@@ -226,7 +258,10 @@ export default function PresencePage() {
             user_id: userData.id,
             date: today,
             clock_in: timeOnly,
-            status: status
+            status: status,
+            nilai_awal_dinas: nilaiAwal,
+            nilai_akhir_dinas: 0,
+            sla_harian: nilaiAwal
           })
         
         if (error) throw error
@@ -240,7 +275,7 @@ export default function PresencePage() {
           })
         }
 
-        setModal({ isOpen: true, status: 'success', message: `Presensi masuk berhasil! Status: ${status}` })
+        setModal({ isOpen: true, status: 'success', message: `Presensi masuk berhasil! Status: ${status}, Nilai Awal: ${nilaiAwal}` })
       }
     } catch (error: any) {
       setModal({ isOpen: true, status: 'error', message: 'Gagal presensi: ' + error.message })

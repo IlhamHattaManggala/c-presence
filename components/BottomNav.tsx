@@ -1,12 +1,54 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, FileText, Camera, Bell, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export function BottomNav() {
   const pathname = usePathname()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+    const fetchUnreadCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+
+        if (!error && count !== null) {
+          setUnreadCount(count)
+        }
+      } catch (err) {
+        console.error('Error fetching unread count:', err)
+      }
+    }
+
+    fetchUnreadCount()
+
+    // Realtime subscription for notification updates
+    const channel = supabase
+      .channel('notifications-badge-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          fetchUnreadCount()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   const navItems = [
     { icon: Home, label: 'Beranda', href: '/users/dashboard' },
@@ -46,7 +88,14 @@ export function BottomNav() {
                 isActive ? 'text-white' : 'text-white/60 hover:text-white'
               }`}
             >
-              <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+              <div className="relative">
+                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                {item.label === 'Notifikasi' && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full w-4.5 h-4.5 flex items-center justify-center border border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] whitespace-nowrap">{item.label}</span>
             </Link>
           )
@@ -55,3 +104,4 @@ export function BottomNav() {
     </nav>
   )
 }
+

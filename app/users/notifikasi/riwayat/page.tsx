@@ -13,6 +13,25 @@ export default function RiwayatPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const markNotificationsAsRead = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+      } catch (err) {
+        console.error('Error marking notifications as read:', err)
+      }
+    }
+
+    markNotificationsAsRead()
+  }, [])
+
+  useEffect(() => {
     const fetchRequests = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -54,13 +73,23 @@ export default function RiwayatPage() {
               requests.map((item) => (
                 <div 
                   key={item.id}
+                  onClick={() => {
+                    if (item.status === 'Disetujui') {
+                      const routeMap: Record<string, string> = {
+                        'DINAS_LUAR': '/users/dokumen/dinas-luar',
+                        'IZIN': '/users/dokumen/izin',
+                        'UBAH_JADWAL': '/users/dokumen/ubah-jadwal'
+                      }
+                      router.push(`${routeMap[item.type]}?id=${item.id}`)
+                    }
+                  }}
                   className="bg-white border border-brand-red/40 rounded-xl p-4 flex flex-col cursor-pointer hover:bg-zinc-50 shadow-sm transition"
                 >
                    <h3 className="text-sm font-bold text-zinc-900 mb-1">
                       Status Pengajuan {item.type.replace('_', ' ').toLowerCase()}...
                    </h3>
                    <span className={`text-[11px] font-bold mb-1 ${item.status === 'Disetujui' ? 'text-green-600' : item.status === 'Proses' ? 'text-orange-500' : 'text-brand-red'}`}>
-                      {item.status}
+                      {item.status} {item.status === 'Disetujui' && ' (Klik untuk Cetak)'}
                    </span>
                    <p className="text-[10px] text-zinc-400 font-medium">
                       {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}

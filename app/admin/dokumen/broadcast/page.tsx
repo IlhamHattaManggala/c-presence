@@ -29,6 +29,9 @@ export default function BroadcastAdminPage() {
   const [bannerUrl, setBannerUrl] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('Semua')
+  const [rawBroadcasts, setRawBroadcasts] = useState<any[]>([])
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
   })
@@ -40,8 +43,24 @@ export default function BroadcastAdminPage() {
     setLoading(true)
     const { data, error } = await supabase.from('broadcasts').select('*').order('created_at', { ascending: false })
     if (error) console.error('Error fetching broadcasts:', error.message)
-    else setBroadcasts(data || [])
+    else {
+      setRawBroadcasts(data || [])
+      setBroadcasts(data || [])
+    }
     setLoading(false)
+  }
+
+  const handleSearch = () => {
+    let temp = [...rawBroadcasts]
+    if (statusFilter !== 'Semua') {
+      const activeVal = statusFilter === 'Aktif'
+      temp = temp.filter(b => b.is_active === activeVal)
+    }
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase()
+      temp = temp.filter(b => b.title?.toLowerCase().includes(q) || b.content?.toLowerCase().includes(q))
+    }
+    setBroadcasts(temp)
   }
 
   const openAddModal = () => {
@@ -188,28 +207,48 @@ export default function BroadcastAdminPage() {
              </div>
           </div>
 
+          <div className="flex justify-end mb-6">
+            <button onClick={openAddModal} className="bg-[#003FE1] text-white px-6 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-xl hover:bg-blue-800 transition">
+              Tambah Informasi Broadcast
+            </button>
+          </div>
+
           {/* Search & Filter Toolbar */}
-          <div className="grid grid-cols-12 gap-6 items-end mb-8">
-            <div className="col-span-12 lg:col-span-4">
+          <div className="flex flex-col md:flex-row justify-end items-end gap-6 mb-8 w-full">
+            <div className="w-full md:w-72">
               <label className="block text-sm font-bold text-zinc-700 mb-3">Pencarian</label>
               <div className="flex space-x-2">
-                <div className="bg-[#B71C1C] text-white p-2.5 rounded-lg flex items-center justify-center"><Search size={18} /></div>
-                <input type="text" placeholder="Judul Informasi" className="flex-1 border border-zinc-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-red font-medium text-zinc-500" />
+                <div className="bg-[#B71C1C] text-white p-2.5 rounded-lg flex items-center justify-center shrink-0"><Search size={18} /></div>
+                <input 
+                  type="text" 
+                  placeholder="Judul Informasi" 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                  className="w-full border border-zinc-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-red font-medium text-black" 
+                />
               </div>
             </div>
-            <div className="col-span-12 lg:col-span-4">
+            <div className="w-full md:w-60">
               <label className="block text-sm font-bold text-zinc-700 mb-3">Status</label>
               <div className="flex space-x-2">
-                <div className="bg-[#B71C1C] text-white p-2.5 rounded-lg flex items-center justify-center"><Search size={18} /></div>
-                <select className="flex-1 border border-zinc-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-red font-medium text-zinc-400 bg-white">
-                  <option>Semua</option>
-                  <option>Aktif</option>
-                  <option>Tidak Aktif</option>
+                <div className="bg-[#B71C1C] text-white p-2.5 rounded-lg flex items-center justify-center shrink-0"><Search size={18} /></div>
+                <select 
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="w-full border border-zinc-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-red font-medium text-black bg-white"
+                >
+                  <option value="Semua">Semua</option>
+                  <option value="Aktif">Aktif</option>
+                  <option value="Tidak Aktif">Tidak Aktif</option>
                 </select>
               </div>
             </div>
-            <div className="col-span-12 lg:col-span-2">
-              <button className="bg-brand-red text-white w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center space-x-2 shadow-lg">
+            <div className="w-full md:w-32">
+              <button 
+                onClick={handleSearch}
+                className="bg-brand-red text-white w-full py-2.5 rounded-lg font-bold text-sm flex items-center justify-center space-x-2 shadow-lg hover:bg-red-700 transition"
+              >
                 <Search size={16} /><span>Cari</span>
               </button>
             </div>
@@ -217,9 +256,6 @@ export default function BroadcastAdminPage() {
 
           <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0 text-center md:text-left">
             <h3 className="text-lg md:text-xl font-bold text-zinc-800">Informasi Pegawai</h3>
-            <button onClick={openAddModal} className="bg-brand-red text-white px-6 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-xl hover:bg-red-700 transition">
-              Tambah Informasi Pegawai
-            </button>
           </div>
 
           {/* Table / Card List */}
@@ -229,11 +265,11 @@ export default function BroadcastAdminPage() {
                <table className="w-full text-left border-collapse">
                  <thead className="text-zinc-500 border-b">
                    <tr>
-                     <th className="px-6 py-6 text-sm font-bold w-16">No</th>
-                     <th className="px-6 py-6 text-sm font-bold">Judul dan Keterangan Informasi</th>
-                     <th className="px-6 py-6 text-sm font-bold">Status</th>
-                     <th className="px-6 py-6 text-sm font-bold">Aksi</th>
-                     <th className="px-6 py-6 text-sm font-bold"></th>
+                     <th className="px-6 py-6 text-sm font-bold w-16 text-left">No</th>
+                     <th className="px-6 py-6 text-sm font-bold text-left">Judul dan Keterangan Informasi</th>
+                     <th className="px-6 py-6 text-sm font-bold text-right">Status</th>
+                     <th className="px-6 py-6 text-sm font-bold text-right w-44 pr-12">Aksi</th>
+                     <th className="px-6 py-6 text-sm font-bold w-16"></th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-zinc-50 text-sm">
@@ -249,15 +285,15 @@ export default function BroadcastAdminPage() {
                    ) : (
                      broadcasts.map((item, idx) => (
                        <tr key={item.id} className="hover:bg-zinc-50/50 transition group">
-                         <td className="px-6 py-6 font-medium text-zinc-400">{idx + 1}</td>
-                         <td className="px-6 py-6 text-zinc-700 font-bold tracking-tight">{item.title}</td>
-                         <td className="px-6 py-6">
+                         <td className="px-6 py-6 font-medium text-zinc-400 text-left">{idx + 1}</td>
+                         <td className="px-6 py-6 text-zinc-700 font-bold tracking-tight text-left">{item.title}</td>
+                         <td className="px-6 py-6 text-right">
                            <span className={`px-4 py-1.5 rounded-lg text-[10px] font-bold ${item.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
                              {item.is_active ? 'Aktif' : 'Tidak Aktif'}
                            </span>
                          </td>
-                         <td className="px-6 py-6">
-                           <div className="flex items-center space-x-6">
+                         <td className="px-6 py-6 text-right w-44 pr-12">
+                           <div className="flex items-center justify-end space-x-6">
                              <button onClick={() => openDetailModal(item)} className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
                              <button onClick={() => openEditModal(item)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
                              <button onClick={() => handleDelete(item.id)} className="text-[#8B0000] hover:scale-110 transition"><X size={18} /></button>

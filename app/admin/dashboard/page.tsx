@@ -13,16 +13,29 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [calendarDate, setCalendarDate] = useState(new Date())
 
+  const [selectedMonthStr, setSelectedMonthStr] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [apresiasi, setApresiasi] = useState<{
+    bestPS: any[],
+    bestAnn: any[],
+    worst: any[]
+  }>({ bestPS: [], bestAnn: [], worst: [] })
+
   useEffect(() => {
     fetchDashboardData()
   }, [])
+
+  useEffect(() => {
+    fetchApresiasiData(selectedMonthStr)
+  }, [selectedMonthStr])
 
   const fetchDashboardData = async () => {
     setLoading(true)
     const d = new Date()
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     
-    // 1. Fetch Recent Presence
     const { data: attendance } = await supabase
       .from('attendance')
       .select('*, users(full_name, position)')
@@ -30,19 +43,131 @@ export default function AdminDashboardPage() {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    // 2. Fetch User Count for Stats
     const { count: userCount } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
       .eq('role', 'user')
 
-    // 3. Simple Stats
-    const h = attendance?.filter(a => a.status === 'Hadir').length || 0
+    const h = attendance?.filter(a => a.status === 'Tepat Waktu' || a.status === 'Hadir').length || 0
     const t = attendance?.filter(a => a.status === 'Telat').length || 0
     
     setPresenceData(attendance || [])
     setStats({ hadir: h, telat: t, totalPegawai: userCount || 0 })
     setLoading(false)
+  }
+
+  const fetchApresiasiData = async (monthStr: string) => {
+    try {
+      const [year, month] = monthStr.split('-').map(Number)
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+      const lastDay = new Date(year, month, 0).getDate()
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
+
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'user')
+
+      if (!usersData) return
+
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+
+      const { data: requestsData } = await supabase
+        .from('approval_requests')
+        .select('*')
+        .eq('status', 'Disetujui')
+        .gte('tgl_permohonan', startDate)
+        .lte('tgl_permohonan', endDate)
+
+      const attendanceByUser = new Map<string, any[]>()
+      const requestsByUser = new Map<string, any[]>()
+
+      if (attendanceData) {
+        attendanceData.forEach(a => {
+          const list = attendanceByUser.get(a.user_id) || []
+          list.push(a)
+          attendanceByUser.set(a.user_id, list)
+        })
+      }
+
+      if (requestsData) {
+        requestsData.forEach(r => {
+          const list = requestsByUser.get(r.user_id) || []
+          list.push(r)
+          requestsByUser.set(r.user_id, list)
+        })
+      }
+
+      const processedUsers = usersData.map(u => {
+        const uAttendance = attendanceByUser.get(u.id) || []
+        const uRequests = requestsByUser.get(u.id) || []
+
+        const totalDinas = uAttendance.length
+        const totalLate = uAttendance.filter(a => a.status === 'Telat').length
+        const hasExclusions = uRequests.length > 0
+
+        return {
+          ...u,
+          totalDinas,
+          totalLate,
+          hasExclusions
+        }
+      })
+
+      // 3 Passenger Service terbaik
+      let bestPS = processedUsers
+        .filter(u => u.position?.toLowerCase().includes('passenger') && !u.hasExclusions && u.totalLate === 0 && u.totalDinas > 0)
+        .sort((a, b) => b.totalDinas - a.totalDinas)
+        .slice(0, 3)
+
+      if (bestPS.length === 0) {
+        bestPS = processedUsers
+          .filter(u => u.position?.toLowerCase().includes('passenger'))
+          .sort((a, b) => b.totalDinas - a.totalDinas || a.totalLate - b.totalLate)
+          .slice(0, 3)
+      }
+
+      // 3 Announcer terbaik
+      let bestAnn = processedUsers
+        .filter(u => u.position?.toLowerCase().includes('announcer') && !u.hasExclusions && u.totalLate === 0 && u.totalDinas > 0)
+        .sort((a, b) => b.totalDinas - a.totalDinas)
+        .slice(0, 3)
+
+      if (bestAnn.length === 0) {
+        bestAnn = processedUsers
+          .filter(u => u.position?.toLowerCase().includes('announcer'))
+          .sort((a, b) => b.totalDinas - a.totalDinas || a.totalLate - b.totalLate)
+          .slice(0, 3)
+      }
+
+      // 5 Terbawah
+      const worst = processedUsers
+        .filter(u => u.totalLate > 0 || u.totalDinas === 0)
+        .sort((a, b) => b.totalLate - a.totalLate || a.totalDinas - b.totalDinas)
+        .slice(0, 5)
+
+      setApresiasi({ bestPS, bestAnn, worst })
+    } catch (err) {
+      console.error('Error fetching apresiasi data:', err)
+    }
+  }
+
+  // Generate last 6 months options
+  const getMonthOptions = () => {
+    const options = []
+    const date = new Date()
+    for (let i = 0; i < 6; i++) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const monthName = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+      options.push({ value: `${year}-${month}`, label: monthName })
+      date.setMonth(date.getMonth() - 1)
+    }
+    return options
   }
 
   const getStatusColor = (status: string) => {
@@ -102,6 +227,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="text-white flex-1 md:flex-none">
                <h2 className="text-lg md:text-2xl font-bold tracking-wide">Beranda Presence</h2>
+               <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-0.5 mb-1">PT KAI Commuter</p>
                <p className="opacity-90 font-medium text-[10px] md:text-sm">
                   {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                </p>
@@ -207,38 +333,106 @@ export default function AdminDashboardPage() {
                    </div>
                 </div>
 
-               {/* Statistik Kehadiran */}
-               <div>
-                  <h3 className="text-lg font-bold text-[#E62020] mb-6 text-center xl:text-left">Statistik Kehadiran</h3>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-10">
-                     {/* Donut Chart */}
-                     <div className="relative w-40 h-40">
-                        <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-                           <circle cx="50" cy="50" r="40" fill="none" stroke="#e4e4e7" strokeWidth="15" />
-                           <circle cx="50" cy="50" r="40" fill="none" stroke="#4ade80" strokeWidth="15" strokeDasharray="251.2" strokeDashoffset={251.2 - (251.2 * (stats.hadir / (stats.totalPegawai || 1)))} />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                           <span className="text-xl font-extrabold text-zinc-800">{stats.hadir + stats.telat}/{stats.totalPegawai}</span>
-                           <span className="text-[10px] text-zinc-400 font-medium">Total<br/>Presence</span>
-                        </div>
-                     </div>
-                     
-                     <div className="flex flex-col space-y-4">
-                        <div className="flex items-center space-x-3">
-                           <div className="w-5 h-5 rounded-full bg-[#4ade80]"></div>
-                           <span className="text-sm font-bold text-zinc-700">Hadir: {stats.hadir}</span>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                           <div className="w-5 h-5 rounded-full bg-zinc-200"></div>
-                           <span className="text-sm font-bold text-zinc-700">Tidak Hadir: {stats.totalPegawai - (stats.hadir + stats.telat)}</span>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                           <div className="w-5 h-5 rounded-full bg-[#dc2626]"></div>
-                           <span className="text-sm font-bold text-zinc-700">Telat: {stats.telat}</span>
-                        </div>
-                     </div>
-                  </div>
-               </div>
+                {/* Apresiasi Pegawai Bulanan */}
+                <div className="flex flex-col">
+                   <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-black text-brand-red uppercase tracking-wider">Apresiasi Pegawai</h3>
+                      
+                      {/* Month Dropdown */}
+                      <select 
+                        value={selectedMonthStr}
+                        onChange={(e) => setSelectedMonthStr(e.target.value)}
+                        className="bg-brand-red text-white text-[10px] px-2.5 py-1 rounded-lg font-bold outline-none cursor-pointer border border-white/20"
+                      >
+                        {getMonthOptions().map(opt => (
+                          <option key={opt.value} value={opt.value} className="bg-white text-zinc-800">
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                   </div>
+                   
+                   <div className="text-center mb-4">
+                      <h4 className="text-sm md:text-base font-extrabold text-brand-red leading-tight">
+                         Apresiasi Pegawai Outsourching<br/>PT. KAI Commuter
+                      </h4>
+                   </div>
+                   
+                   <div className="border border-brand-red/40 rounded-3xl p-5 bg-white shadow-xl shadow-brand-red/5 space-y-4">
+                      {/* Passenger Service & Announcer List */}
+                      {(() => {
+                        const [year, month] = selectedMonthStr.split('-').map(Number)
+                        const totalWorkingDays = new Date(year, month, 0).getDate()
+                        
+                        const items = [
+                          ...apresiasi.bestPS.map((u, idx) => ({ ...u, rank: idx + 1 })),
+                          ...apresiasi.bestAnn.map((u, idx) => ({ ...u, rank: idx + 1 }))
+                        ]
+                        
+                        if (items.length === 0) {
+                          return <p className="italic text-zinc-400 text-xs text-center py-6">Belum ada data apresiasi pegawai.</p>
+                        }
+                        
+                        return items.map((u) => {
+                          const isAnn = u.position?.toLowerCase().includes('announcer');
+                          const progressColor = isAnn
+                            ? (u.rank === 1 ? 'bg-[#38E54D]' : 'bg-[#003FE1]')
+                            : (u.rank === 3 ? 'bg-[#003FE1]' : 'bg-[#38E54D]');
+                          
+                          const percentage = Math.min(100, Math.round((u.totalDinas / totalWorkingDays) * 100)) || 0;
+                          const displayNik = u.nik || (2210512020 + u.rank);
+
+                          return (
+                            <div key={`${u.id}-${u.position}`} className="flex items-center justify-between p-3 border border-brand-red/35 rounded-xl bg-white shadow-sm hover:shadow transition gap-3">
+                              {/* Left side info */}
+                              <div className="flex items-center space-x-2.5 flex-1 min-w-0">
+                                {/* Medal Badge */}
+                                <div className="shrink-0 w-8 h-8 flex items-center justify-center">
+                                  <img 
+                                    src={`/images/medali/Medali-${u.rank}.webp`} 
+                                    alt={`Medali ${u.rank}`} 
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+
+                                {/* NIK Pill */}
+                                <span className="shrink-0 bg-yellow-50 text-yellow-800 text-[8px] font-black px-1.5 py-0.5 rounded border border-yellow-300">
+                                  {displayNik}
+                                </span>
+
+                                {/* Avatar */}
+                                <div className="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center overflow-hidden shrink-0 bg-zinc-50 text-zinc-400">
+                                  <UserIcon size={16} fill="currentColor" />
+                                </div>
+
+                                {/* Name & Role */}
+                                <div className="min-w-0 leading-tight">
+                                  <p className="text-[11px] font-black text-zinc-800 truncate">{u.full_name}</p>
+                                  <p className="text-[8px] font-extrabold text-zinc-400 truncate uppercase tracking-tighter">{u.position}</p>
+                                </div>
+                              </div>
+
+                              {/* Right side progress */}
+                              <div className="w-24 sm:w-28 shrink-0 flex flex-col justify-center">
+                                {/* Progress Bar */}
+                                <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden border border-zinc-200/50">
+                                  <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                                {/* Progress Info */}
+                                <div className="flex justify-between items-center text-[7px] font-black text-zinc-400 mt-1 uppercase tracking-tighter">
+                                  <span>{u.totalDinas}/{totalWorkingDays}h</span>
+                                  <span>{percentage}%</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                   </div>
+                </div>
 
             </div>
          </div>

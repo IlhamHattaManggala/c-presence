@@ -1,33 +1,55 @@
 # Rencana Implementasi Revisi C-Presence (KCI)
 
-Dokumen ini berisi rencana kerja untuk mengimplementasikan 26+ poin revisi pada sistem presensi digital **C-Presence** sesuai dengan spesifikasi dalam dokumen [deskripsi UI Presence_KCI Revisi.pdf](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/deskripsi%20UI%20Presence_KCI%20Revisi.pdf).
+Dokumen ini berisi rencana detail untuk mengimplementasikan sisa poin revisi pada sistem presensi digital **C-Presence** sesuai dengan spesifikasi dokumen [deskripsi UI Presence_KCI Revisi.pdf](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/deskripsi%20UI%20Presence_KCI%20Revisi.pdf).
 
 ---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Aturan Waktu Absensi & Sinkronisasi Shift:**
-> 1. Presensi masuk (*Tap In*) hanya diperbolehkan maksimal **1 jam sebelum** jam dinasan.
-> 2. Presensi pulang (*Tap Out*) hanya diperbolehkan maksimal **1 jam setelah** jam dinasan.
-> 3. Keterlambatan dan ketepatan waktu presensi akan dihitung berdasarkan **Jam Dinasan** yang diatur oleh masing-masing user pada profilnya, bukan lagi default stasiun atau jam 08:00.
-> 4. Perubahan Kode Dinas & Jam Dinas oleh user di profilnya akan langsung memperbarui master data shift atau user details di database agar tetap sinkron.
+> **Aturan Waktu Absensi & Perhitungan Keterlambatan:**
+> 1. **Tap In (Presensi Masuk)** dibatasi maksimal **1 jam sebelum** Jam Dinasan masuk.
+> 2. **Tap Out (Presensi Pulang)** dibatasi maksimal **1 jam setelah** Jam Dinasan pulang.
+> 3. Perhitungan keterlambatan (late arrival) dan pulang cepat (early departure) menggunakan **Jam Dinasan** pribadi yang dikonfigurasi secara mandiri oleh user pada profilnya, bukan lagi default stasiun atau jam 08:00.
+> 4. Status presensi di laporan harian akan berwarna **Biru ("Tepat Waktu")** jika tepat waktu, dan **Hijau ("Dinas Luar")** jika pengajuan dinas luar disetujui.
 
 > [!WARNING]
 > **Skema Ekspor Excel & Format SLA KCI:**
-> Ekspor Excel untuk Rekon SLA bulanan akan dibuat sedinamis mungkin mengikuti format kolom KCI:
-> - Menyertakan kolom kehadiran per tanggal (1-31), jika libur bernilai `0`.
-> - Menyertakan nilai kehadiran awal (maks 40), kehadiran akhir (maks 30), total nilai kehadiran (SLA Harian, maks 70).
-> - Menyertakan kolom SLA Manual, Nilai Komplain (default 100/0), Kewajiban SLA (Hari Dinas * 100), dan Persentase SLA Akhir.
+> Ekspor Excel Rekon SLA bulanan akan dibuat dengan layout kolom persis seperti template KCI:
+> - Baris kehadiran per tanggal (1-31) menampilkan nilai harian (maks 70, libur = 0).
+> - Menyertakan kolom **SLA Manual**, **Nilai Komplain** (default 100/0), **Kewajiban SLA** (Hari Dinas * 100), dan **Persentase SLA Akhir**.
 
 ---
 
 ## Open Questions
 
 > [!NOTE]
-> **Pertanyaan Desain & Teknis:**
-> 1. Apakah data shift baru yang dimasukkan user secara manual di profilnya perlu menambahkan entri baru ke tabel `shifts` (jika kodenya belum terdaftar), atau langsung disimpan ke data personal `users` saja? (Direkomendasikan: disimpan di `users` dan disinkronkan ke master data jika kodenya baru).
-> 2. Untuk penandatangan dokumen persetujuan (ttd basah), apakah tanda tangan admin digenerate otomatis menggunakan tanda tangan digital/sistem, atau hanya berupa area kosong/placeholder untuk dicetak dan ditandatangani basah secara manual? (Direkomendasikan: area tanda tangan kosong/placeholder dengan nama terang sesuai gambar figma).
+> **Tanda Tangan Basah Dokumen Persetujuan:**
+> Area tanda tangan di bagian bawah dokumen persetujuan (Izin, Dinas Luar, Ubah Jadwal) berupa kolom kosong/placeholder. User dapat mengunduh dokumen sebagai PDF atau mencetaknya langsung melalui browser untuk ditandatangani basah secara manual oleh pihak KAI Commuter dan Petugas.
+
+---
+
+## Database Schema Changes (Supabase SQL)
+
+Sebelum pengerjaan kode, beberapa perubahan kolom pada database Supabase diperlukan:
+
+```sql
+-- 1. Tambah kolom Jam Dinasan pada tabel users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dinasan_start_time TIME;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dinasan_end_time TIME;
+
+-- 2. Tambah kolom Nilai SLA & Bendera Dinas Luar pada tabel attendance
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS nilai_awal_dinas NUMERIC DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS nilai_akhir_dinas NUMERIC DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS sla_harian NUMERIC DEFAULT 0;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS is_dinas_luar BOOLEAN DEFAULT FALSE;
+
+-- 3. Tambah kolom Radius Kustom pada tabel stations (jika belum ada)
+ALTER TABLE stations ADD COLUMN IF NOT EXISTS radius_meters INTEGER DEFAULT 600;
+
+-- 4. Tambah kolom attachment_url untuk bukti foto Dinas Luar pada tabel approval_requests
+ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+```
 
 ---
 
@@ -40,31 +62,32 @@ Pengerjaan akan dibagi menjadi 5 komponen utama untuk kemudahan pelacakan.
 Menambahkan tombol kembali, mengaktifkan badge notifikasi belum dibaca, dan merapikan filter notifikasi.
 
 #### [MODIFY] [BottomNav.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/components/BottomNav.tsx)
-- Menambahkan *badge* angka notifikasi belum dibaca di sebelah ikon lonceng notifikasi pada navigasi bawah (bottom nav) dengan mengambil count dari tabel `notifications` yang bernilai `is_read = false`.
+- Menghitung jumlah notifikasi belum dibaca (`is_read = false`) dari tabel `notifications` untuk user saat ini.
+- Menampilkan *badge* angka merah di sebelah ikon lonceng pada navigasi bawah (bottom nav) jika jumlahnya > 0.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/notifikasi/page.tsx)
-- Menambahkan tombol kembali (*back arrow*) di header atas menuju dashboard.
+- Menambahkan tombol kembali (*back arrow* / chevron) di sebelah kiri judul header "Notifikasi" untuk kembali ke Dashboard.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/notifikasi/info/page.tsx)
-- Menghapus tombol filter tab `PS` dan `ANN` di halaman notifikasi (menyisakan filter `ALL` atau langsung menampilkan daftar info berkala).
-- Menambahkan tombol kembali (*back arrow*) di header atas.
+- Menghapus filter tab `PS` dan `ANN` di halaman notifikasi (sehingga langsung menampilkan semua informasi/ALL).
+- Menambahkan tombol kembali (*back arrow*) di header atas menuju halaman notifikasi utama.
 
 ---
 
 ### 2. Formulir & Profil Pegawai (User)
 
-Ppembaruan form dinas luar (upload foto), ubah jadwal (input text & dropdown shift lengkap), dan profil (input kode/jam dinasan).
+Pembaruan form dinas luar (upload foto), ubah jadwal (input text & dropdown shift lengkap), dan profil (input kode/jam dinasan).
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/time-management/form/page.tsx)
-- **Form Izin**: Mengubah kata "Izin Sakit" menjadi "Izin" saja.
-- **Form Dinas Luar**: Menambahkan input file unggah foto bukti dokumentasi (maksimal 10MB) dan menyimpannya ke storage Supabase.
-- **Form Ubah Jadwal**:
-  - Kolom "Kode Dinasan Semula" diubah dari dropdown menjadi input teks biasa (`input type="text"`).
-  - Kolom "Kode Dinasan Baru" diisi dengan daftar kode dinasan lengkap KCI (seperti `DP2`, `DP3`, `DS1`, `M`, `L`, dll.) beserta jam operasionalnya.
+- **Form Izin:** Menghapus kata "Sakit" pada label tab agar menjadi "Izin" saja.
+- **Form Dinas Luar:** Menambahkan input file untuk mengunggah foto bukti dokumentasi (maksimal 10MB) dan menyimpannya ke Supabase storage `dinas-luar-evidence` bucket.
+- **Form Ubah Jadwal:**
+  - Mengubah kolom "Kode Dinasan Semula" dari static readonly menjadi input teks biasa agar user bisa mengetik sendiri.
+  - Mengisi kolom "Kode Dinasan Baru" dengan dropdown daftar kode dinasan lengkap KCI (seperti `DP2`, `DP3`, `DS1`, `M`, `L`, dll.) beserta jam operasionalnya.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/profile/page.tsx)
-- Menambahkan input kolom **Kode Dinasan** dan **Jam Dinasan** (Jam Masuk - Jam Pulang) agar user bisa mengaturnya secara mandiri setiap bulan.
-- Menyinkronkan perubahan ini ke database (`users` table).
+- Menambahkan input kolom **Kode Dinasan** (dropdown) dan **Jam Dinasan** (input waktu Jam Masuk dan Jam Pulang) pada form edit profil agar user bisa memperbaruinya secara mandiri setiap bulan.
+- Menyimpan nilai ini ke kolom `shift_code`, `dinasan_start_time`, dan `dinasan_end_time` di database `users`.
 
 ---
 
@@ -73,16 +96,17 @@ Ppembaruan form dinas luar (upload foto), ubah jadwal (input text & dropdown shi
 Mengimplementasikan logika presensi 1 jam, radius stasiun 600m, editing koordinat, dan laporan bulanan dinamis.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/presence/page.tsx)
-- Mengubah radius pengecekan jarak stasiun menjadi **600 meter** (sebelumnya 100m).
-- Menambahkan validasi waktu presensi:
-  - *Tap In* hanya diperbolehkan $\le 1$ jam sebelum Jam Dinasan masuk.
-  - *Tap Out* hanya diperbolehkan $\le 1$ jam setelah Jam Dinasan pulang.
-- Mengubah perhitungan keterlambatan (punctuality) agar membandingkan waktu saat ini dengan **Jam Dinasan** pribadi yang diatur di profil user.
+- Memastikan radius presensi menggunakan data dinamis dari database (`station.radius_meters`, fallback 600m).
+- Menambahkan validasi batasan waktu presensi:
+  - *Tap In* hanya diperbolehkan $\le 1$ jam sebelum `dinasan_start_time`.
+  - *Tap Out* hanya diperbolehkan $\le 1$ jam setelah `dinasan_end_time`.
+- Membandingkan jam absen masuk/pulang dengan `dinasan_start_time` and `dinasan_end_time` dari data user.
+- Memanggil fungsi hitung skor SLA dan menyimpannya ke database (`nilai_awal_dinas`, `nilai_akhir_dinas`, `sla_harian`).
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/laporan/page.tsx)
 - Mengubah tulisan bulan statis menjadi dropdown interaktif sehingga user bisa memilih dan melihat riwayat kehadiran bulan sebelumnya (misalnya bulan Mei).
 - Menyesuaikan tampilan status di baris laporan:
-  - Jika pengajuan dinas luar disetujui, tanggal tersebut akan otomatis memunculkan tombol warna hijau bertuliskan **"Dinas Luar"**.
+  - Jika pengajuan dinas luar disetujui, tanggal tersebut akan memunculkan badge warna hijau bertuliskan **"Dinas Luar"**.
   - Jika presensi masuk tepat waktu, status presensi berwarna biru bertuliskan **"Tepat Waktu"**.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/users/dokumen/dinas-luar/page.tsx)
@@ -102,16 +126,17 @@ Perbaikan pada web admin, formulir persetujuan, input search, registrasi admin, 
 - Mengganti logo KAI Commuter dengan logo asli yang beresolusi baik.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/admin/dashboard/page.tsx)
-- Mengubah visualisasi statistika di beranda admin menjadi menampilkan daftar **Apresiasi Pegawai 5 Terbaik Bulanan** (3 Passenger Service dan 3 Announcer paling rajin yang tidak pernah telat, tidak termasuk yang melakukan izin/dinas luar/ubah dinasan).
+- Mengubah visualisasi statistika di beranda admin menjadi menampilkan daftar **Apresiasi Pegawai 5 Terbaik Bulanan** (3 Passenger Service dan 3 Announcer paling rajin yang tidak pernah telat, tidak termasuk yang melakukan izin/dinas luar/ubah dinasan) dan 5 terbawah.
+- Menambahkan dropdown pilihan bulan untuk melihat riwayat apresiasi.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/admin/master-data/page.tsx)
-- Membuka akses registrasi agar admin bisa mendaftarkan akun-akun admin baru tanpa error.
-- Menyembunyikan tampilan password pada form tambah data pengguna (menggunakan dots/asterisks `type="password"`).
+- Memperbaiki alur registrasi admin baru agar tidak memicu error database.
+- Menyembunyikan tampilan password pada form tambah data pengguna (`type="password"`).
 - Menambahkan kolom input Latitude & Longitude koordinat stasiun agar admin bisa mengeditnya secara manual.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/admin/dokumen/pendaftaran/page.tsx)
 - Mengganti tombol aksi "Kirim" menjadi ikon tempat sampah untuk langsung menghapus data pendaftaran secara langsung.
-- Mengoptimalkan import data pegawai via Excel agar dapat memproses 1000-2000 data sekaligus tanpa mengalami timeout atau database error, serta mendeteksi kolom excel secara dinamis.
+- Mengoptimalkan import data pegawai via Excel dengan library `xlsx` menggunakan batch insertion untuk memproses 1000-2000 data tanpa timeout, serta mendeteksi kolom secara dinamis.
 
 #### [MODIFY] [page.tsx](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/app/admin/dokumen/broadcast/page.tsx)
 - Mengubah nama tombol "Tambah Informasi Pegawai" menjadi "Tambah Informasi Broadcast".
@@ -130,29 +155,43 @@ Perbaikan pada web admin, formulir persetujuan, input search, registrasi admin, 
 
 ### 5. Logika SLA & Laporan Excel KCI
 
-Penghitungan skor SLA dan export data rekon SLA Excel bulanan.
+Penghitungan skor SLA harian dan bulanan, serta pembuatan file Excel Rekon SLA.
 
 #### [NEW] [sla-helper.ts](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/lib/sla-helper.ts)
 - Membuat fungsi pembantu untuk menghitung Nilai Awal Dinas (skor keterlambatan masuk, maks 40) dan Nilai Akhir Dinas (skor pulang cepat, maks 30) sesuai tabel SOP.
+- Ketentuan keterlambatan tap-in:
+  - <=0 menit = 40 poin
+  - 1–5 menit = 38 poin
+  - 6–10 menit = 36 poin
+  - 11–15 menit = 34 poin
+  - 16–20 menit = 32 poin
+  - >20 menit = 30 poin
+- Ketentuan pulang cepat tap-out:
+  - <=0 menit = 30 poin
+  - 1–5 menit = 28.5 poin
+  - 6–10 menit = 27 poin
+  - 11–15 menit = 25.5 poin
+  - 16–20 menit = 24 poin
+  - >20 menit = 22.5 poin
 
 #### [NEW] [excel-export.ts](file:///d:/Ilham%20Hatta%20Manggala/Joki%20Project/c-presence/lib/excel-export.ts)
-- Menggunakan library `xlsx` untuk meng-generate file Excel Rekon SLA bulanan yang memiliki format persis seperti template KCI.
+- Menggunakan library `xlsx` untuk meng-generate file Excel Rekon SLA bulanan dengan kolom detail tanggal 1-31, SLA manual, Nilai komplain default 100, Kewajiban SLA (Hari Dinas * 100), dan Persentase SLA Akhir.
 
 ---
 
 ## Verification Plan
 
 ### Automated Tests
-- Menjalankan linting dan build lokal:
+- Menjalankan linting dan build lokal untuk memastikan tidak ada error TypeScript:
   ```bash
   npm run lint
   npm run build
   ```
 
 ### Manual Verification
-1. **Verifikasi Radius & Presensi:** 
-   - Lakukan mock lokasi GPS di area stasiun dan di luar stasiun (> 600 meter) untuk memverifikasi muncul/tidaknya peta dan kamera.
-   - Uji coba presensi tepat waktu dan terlambat, lalu verifikasi apakah warna di laporan presensi berubah menjadi biru (Tepat Waktu) atau merah (Telat).
+1. **Verifikasi Radius & Batasan Waktu:**
+   - Lakukan mock lokasi GPS di area stasiun dan di luar stasiun (> 600 meter) untuk memverifikasi muncul/tidaknya tombol presensi.
+   - Uji coba presensi tap-in $\le$ 1 jam sebelum jam dinasan, dan diluar batasan waktu untuk memastikan validasi error bekerja.
 2. **Pengujian Form & Dokumen:**
    - Lakukan pengisian form Dinas Luar dengan melampirkan foto berukuran hingga 10MB.
    - Cek halaman dokumen persetujuan setelah disetujui admin untuk melihat layout tanda tangan basah dan coba klik tombol Download PDF & Print.

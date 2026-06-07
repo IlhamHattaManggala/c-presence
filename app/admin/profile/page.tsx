@@ -113,9 +113,12 @@ export default function AdminProfilePage() {
           <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white flex items-center justify-center text-white shrink-0 hidden xs:flex">
             <User className="w-5 h-5 md:w-7 md:h-7" />
           </div>
-          <h2 className="text-sm md:text-xl font-bold text-white tracking-wide leading-tight">
-            Profile Admin PT. Kereta Commuter Indonesia
-          </h2>
+          <div>
+            <h2 className="text-sm md:text-xl font-bold text-white tracking-wide leading-tight">
+              Profile Admin
+            </h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-1">PT KAI Commuter</p>
+          </div>
         </div>
       </div>
 

@@ -350,40 +350,32 @@ export default function PendaftaranPegawaiPage() {
           {/* Table / Card List Section */}
           <div className="space-y-4">
              {/* Desktop Table View */}
-             <div className="hidden md:block bg-white border border-zinc-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse min-w-[1200px]">
-                      <thead className="bg-[#B71C1C] text-white">
-                         <tr className="divide-x divide-zinc-700/50">
-                            <th className="px-2 py-5 text-sm font-bold w-12 text-center">No</th>
-                            <th className="px-4 py-5 text-sm font-bold text-center">Email</th>
-                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">ID/NIK</th>
-                            <th className="px-4 py-5 text-sm font-bold w-48 text-center">Nama</th>
-                            <th className="px-4 py-5 text-sm font-bold w-48 text-center">Posisi</th>
-                            <th className="px-4 py-5 text-sm font-bold w-40 text-center">Nomor Hp</th>
-                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">Stasiun</th>
-                            <th className="px-4 py-5 text-sm font-bold w-32 text-center">Kode Dinasan</th>
-                            <th className="px-2 py-5 text-sm font-bold w-24 text-center">Aksi</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-300">
-                         {loading ? (
-                            <tr>
-                               <td colSpan={9} className="py-20 text-center">
-                                  <div className="flex flex-col items-center justify-center space-y-4">
-                                     <div className="w-10 h-10 border-4 border-[#B71C1C] border-t-transparent rounded-full animate-spin"></div>
-                                     <p className="text-zinc-500 font-medium text-sm">Memuat data pegawai...</p>
-                                  </div>
-                               </td>
+             {loading ? (
+                <div className="hidden md:block border border-zinc-200 rounded-lg overflow-hidden bg-white p-20 text-center">
+                   <div className="flex flex-col items-center justify-center space-y-4">
+                      <div className="w-10 h-10 border-4 border-[#B71C1C] border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-zinc-500 font-medium text-sm">Memuat data pegawai...</p>
+                   </div>
+                </div>
+             ) : employees.length > 0 ? (
+                <div className="hidden md:block bg-white border border-zinc-200 rounded-lg overflow-hidden">
+                   <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[1200px]">
+                         <thead className="bg-[#B71C1C] text-white">
+                            <tr className="divide-x divide-zinc-700/50">
+                               <th className="px-2 py-5 text-sm font-bold w-12 text-center">No</th>
+                               <th className="px-4 py-5 text-sm font-bold text-center">Email</th>
+                               <th className="px-4 py-5 text-sm font-bold w-32 text-center">ID/NIK</th>
+                               <th className="px-4 py-5 text-sm font-bold w-48 text-center">Nama</th>
+                               <th className="px-4 py-5 text-sm font-bold w-48 text-center">Posisi</th>
+                               <th className="px-4 py-5 text-sm font-bold w-40 text-center">Nomor Hp</th>
+                               <th className="px-4 py-5 text-sm font-bold w-32 text-center">Stasiun</th>
+                               <th className="px-4 py-5 text-sm font-bold w-32 text-center">Kode Dinasan</th>
+                               <th className="px-2 py-5 text-sm font-bold w-24 text-center">Aksi</th>
                             </tr>
-                         ) : employees.length === 0 ? (
-                            <tr>
-                               <td colSpan={9} className="py-20 text-center text-zinc-500 font-medium italic text-sm">
-                                  Belum ada data pegawai.
-                               </td>
-                            </tr>
-                         ) : (
-                            employees.map((row, idx) => (
+                         </thead>
+                         <tbody className="divide-y divide-zinc-300">
+                            {employees.map((row, idx) => (
                                <tr key={row.id} className="divide-x divide-zinc-300 hover:bg-zinc-50 transition text-zinc-600">
                                   <td className="px-2 py-4 text-center font-medium text-zinc-500">{idx + 1}</td>
                                   <td className="px-4 py-4 text-sm truncate">{row.email}</td>
@@ -396,18 +388,23 @@ export default function PendaftaranPegawaiPage() {
                                   <td className="px-2 py-4">
                                      <div className="flex items-center justify-center space-x-4">
                                         <button onClick={() => handleEditClick(row)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={18}/></button>
-                                        
-                                        <button onClick={() => handleSendInvite(row)} className="text-[#8B0000] hover:scale-110 transition"><Send size={16} className="rotate-[-10deg]" /></button>
+                                        <button onClick={() => handleDelete(row.id)} className="text-[#B71C1C] hover:text-red-700 hover:scale-110 transition"><Trash2 size={18} /></button>
                                      </div>
                                   </td>
                                </tr>
-                            ))
-                         )}
-                      </tbody>
-                   </table>
+                            ))}
+                         </tbody>
+                      </table>
+                   </div>
                 </div>
-             </div>
-
+             ) : (
+                <div className="hidden md:flex flex-col items-center justify-center py-20 border border-zinc-200 border-dashed rounded-2xl bg-zinc-50/50">
+                   <FileSpreadsheet className="text-zinc-300 w-16 h-16 mb-4" />
+                   <p className="text-zinc-500 font-bold">Belum ada data pegawai.</p>
+                   <p className="text-zinc-400 text-xs mt-1">Harap upload file Excel pendaftaran pegawai di atas.</p>
+                </div>
+             )}
+ 
              {/* Mobile Card View */}
              <div className="md:hidden space-y-4">
                 {loading ? (
@@ -430,7 +427,7 @@ export default function PendaftaranPegawaiPage() {
                             </div>
                             <div className="flex items-center space-x-2">
                                <button onClick={() => handleEditClick(row)} className="p-2 bg-orange-50 text-orange-500 rounded-lg"><Edit3 size={16}/></button>
-                               
+                               <button onClick={() => handleDelete(row.id)} className="p-2 bg-red-50 text-[#B71C1C] rounded-lg"><Trash2 size={16}/></button>
                             </div>
                          </div>
                          
@@ -446,15 +443,6 @@ export default function PendaftaranPegawaiPage() {
                             <div>
                                <p className="text-[9px] font-bold text-zinc-400 uppercase">Kode Dinas</p>
                                <p className="text-xs font-black text-brand-red uppercase">{row.shift_code || '-'}</p>
-                            </div>
-                            <div className="flex justify-end items-end">
-                               <button 
-                                 onClick={() => handleSendInvite(row)}
-                                 className="flex items-center space-x-1.5 text-brand-red font-bold text-[10px] bg-red-50 px-3 py-1.5 rounded-full"
-                               >
-                                  <Send size={10} className="rotate-[-10deg]"/>
-                                  <span>KIRIM</span>
-                               </button>
                             </div>
                          </div>
                       </div>

@@ -60,58 +60,111 @@ export default function LaporanPage() {
   const [attendanceList, setAttendanceList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({ normal: 0, telat: 0, dinas: 0, total: 0 })
+  
+  const [selectedMonthStr, setSelectedMonthStr] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  // Generate last 6 months options
+  const getMonthOptions = () => {
+    const options = []
+    const date = new Date()
+    for (let i = 0; i < 6; i++) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const monthName = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+      options.push({ value: `${year}-${month}`, label: monthName })
+      date.setMonth(date.getMonth() - 1)
+    }
+    return options
+  }
 
   useEffect(() => {
     const fetchHistory = async () => {
+      setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase
+        const [yearStr, monthStr] = selectedMonthStr.split('-')
+        const lastDay = new Date(Number(yearStr), Number(monthStr), 0).getDate()
+        const startDate = `${yearStr}-${monthStr}-01`
+        const endDate = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`
+
+        const { data, error } = await supabase
           .from('attendance')
-          .select('*, users(shift_code)')
+          .select(`
+            *,
+            users (
+              shift_code,
+              dinasan_start_time,
+              dinasan_end_time
+            )
+          `)
           .eq('user_id', user.id)
+          .gte('date', startDate)
+          .lte('date', endDate)
           .order('date', { ascending: false })
         
-        if (data) {
+        if (!error && data) {
           const mapped = data.map(item => {
             const dt = new Date(item.date)
             const status = item.status || 'Hadir'
+            const isDinasLuar = item.is_dinas_luar || status === 'Dinas Luar'
             
             // Basic theme mapping
-            let theme: any = { bg: 'bg-[#1DB98A]', badgeEmpty: 'bg-[#1DB98A] text-white', badgePulang: 'bg-[#1DB98A] text-white' }
+            let theme: any = { 
+              bg: 'bg-[#3B82F6]', // Biru for Tepat Waktu / Hadir
+              badgeMasuk: 'bg-[#3B82F6] text-white',
+              badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
+              badgePulang: 'bg-[#3B82F6] text-white' 
+            }
+
             if (status === 'Telat') {
               theme = { 
-                bg: 'bg-[#E53935]', 
+                bg: 'bg-[#E53935]', // Merah for Telat
                 badgeMasuk: 'bg-[#E53935] text-white', 
-                badgeEmpty: 'bg-[#E53935] text-white',
+                badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
+                badgePulang: 'bg-[#3B82F6] text-white'
+              }
+            } else if (isDinasLuar) {
+              theme = {
+                bg: 'bg-[#1DB98A]', // Hijau for Dinas Luar
+                badgeMasuk: 'bg-[#1DB98A] text-white',
+                badgeEmpty: 'bg-[#1DB98A] text-white',
                 badgePulang: 'bg-[#1DB98A] text-white'
               }
             }
             
+            const displayStatus = isDinasLuar ? 'Dinas Luar' : (status === 'Telat' ? 'Telat' : 'Tepat Waktu')
+
             return {
               date: dt.getDate().toString().padStart(2, '0'),
               day: dt.toLocaleDateString('id-ID', { weekday: 'long' }),
-              status: status,
+              status: displayStatus,
               masuk: item.clock_in ? String(item.clock_in).replace(/\./g, ':').substring(0, 5) : '--:--',
               pulang: item.clock_out ? String(item.clock_out).replace(/\./g, ':').substring(0, 5) : '--:--',
-              jadwalMasuk: item.users?.shift_code || '08:00',
-              jadwalPulang: '17:00',
+              jadwalMasuk: item.users?.dinasan_start_time ? item.users.dinasan_start_time.substring(0, 5) : (item.users?.shift_code || '08:00'),
+              jadwalPulang: item.users?.dinasan_end_time ? item.users.dinasan_end_time.substring(0, 5) : '17:00',
               themeClasses: theme
             }
           })
           setAttendanceList(mapped)
           
           setSummary({
-            normal: mapped.filter(m => m.status === 'Hadir').length,
+            normal: mapped.filter(m => m.status === 'Tepat Waktu').length,
             telat: mapped.filter(m => m.status === 'Telat').length,
-            dinas: 0,
+            dinas: mapped.filter(m => m.status === 'Dinas Luar').length,
             total: mapped.length
           })
+        } else {
+          setAttendanceList([])
+          setSummary({ normal: 0, telat: 0, dinas: 0, total: 0 })
         }
       }
       setLoading(false)
     }
     fetchHistory()
-  }, [])
+  }, [selectedMonthStr])
 
   return (
     <div className="bg-zinc-50 min-h-screen pb-24">
@@ -137,11 +190,22 @@ export default function LaporanPage() {
              </button>
           </div>
 
-          {/* Title & Month Badge */}
-          <div className="flex justify-between items-center mb-4 max-w-4xl mx-auto">
+          {/* Title & Month Selector Dropdown */}
+          <div className="flex justify-between items-center mb-4 max-w-4xl mx-auto w-full">
              <h2 className="text-xl sm:text-2xl font-bold text-zinc-800">Detail</h2>
-             <div className="bg-[#B71C1C] text-white px-4 py-1.5 rounded-md text-sm font-medium shadow-sm">
-                Januari, 2026
+             <div className="relative">
+                <select
+                  value={selectedMonthStr}
+                  onChange={(e) => setSelectedMonthStr(e.target.value)}
+                  className="bg-[#B71C1C] text-white px-6 py-1.5 pr-8 rounded-md text-sm font-medium shadow-sm cursor-pointer appearance-none focus:outline-none"
+                >
+                  {getMonthOptions().map(opt => (
+                    <option key={opt.value} value={opt.value} className="bg-white text-zinc-800">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white text-[10px]">▼</div>
              </div>
           </div>
 
@@ -151,7 +215,7 @@ export default function LaporanPage() {
              <div className="flex justify-around items-center text-center">
                 <div className="flex flex-col">
                    <span className="text-[#3B82F6] font-bold text-lg">{summary.normal}</span>
-                   <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Normal</span>
+                   <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Tepat Waktu</span>
                 </div>
                 <div className="flex flex-col">
                    <span className="text-[#E53935] font-bold text-lg">{summary.telat}</span>
@@ -159,7 +223,7 @@ export default function LaporanPage() {
                 </div>
                 <div className="flex flex-col">
                    <span className="text-[#1DB98A] font-bold text-lg">{summary.dinas}</span>
-                   <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Dinasan</span>
+                   <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Dinas Luar</span>
                 </div>
                 <div className="flex flex-col">
                    <span className="text-[#FFB300] font-bold text-lg">0</span>

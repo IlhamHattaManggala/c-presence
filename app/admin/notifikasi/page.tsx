@@ -66,6 +66,7 @@ export default function NotifikasiAdminPage() {
           </div>
           <div>
             <h2 className="text-lg md:text-xl font-bold text-white tracking-wide leading-tight">Notifikasi Presence</h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-1">PT KAI Commuter</p>
           </div>
         </div>
       </div>
@@ -124,12 +125,15 @@ export default function NotifikasiAdminPage() {
               
               {/* Header Logos */}
               <div className="flex justify-between items-center mb-10 pb-4 border-b border-zinc-100">
-                 <div className="flex flex-col">
-                    <div className="flex items-center space-x-1">
-                       <span className="text-xl font-black text-[#003FE1] italic">KAI</span>
-                       <span className="text-[10px] font-bold text-red-600 uppercase mt-1">Commuter</span>
-                    </div>
-                 </div>
+                  <div className="flex flex-col">
+                     <div className="relative w-24 h-12">
+                        <img 
+                          src="/images/logo splash.png" 
+                          alt="KAI Commuter" 
+                          className="object-contain"
+                        />
+                     </div>
+                  </div>
                  <div className="text-center flex-1">
                     <h5 className="text-sm font-black text-zinc-800 tracking-tighter uppercase">{selectedNotif.tipe}</h5>
                  </div>

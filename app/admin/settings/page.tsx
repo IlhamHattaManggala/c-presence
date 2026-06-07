@@ -122,6 +122,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 className="text-lg md:text-2xl font-bold text-white tracking-wide leading-tight">Pengaturan Sistem</h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-1">PT KAI Commuter</p>
           </div>
         </div>
       </div>

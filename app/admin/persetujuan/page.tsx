@@ -13,7 +13,10 @@ export default function PersetujuanPage() {
   const [activeTab, setActiveTab] = useState<TabType>('UBAH_JADWAL')
   const [viewMode, setViewMode] = useState<ViewMode>('LIST')
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
+  const [rawRequests, setRawRequests] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('Semua')
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 })
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
@@ -22,6 +25,8 @@ export default function PersetujuanPage() {
 
   useEffect(() => {
     fetchRequests()
+    setSearchQuery('')
+    setStatusFilter('Semua')
   }, [activeTab])
 
   const fetchRequests = async () => {
@@ -45,6 +50,7 @@ export default function PersetujuanPage() {
     if (error) {
       console.error('Error fetching requests:', error.message || error)
     } else {
+      setRawRequests(data || [])
       setRequests(data || [])
       
       const pending = (data || []).filter(r => r.status === 'Proses').length
@@ -53,6 +59,22 @@ export default function PersetujuanPage() {
       setSummary({ total: data?.length || 0, approved, pending, rejected })
     }
     setLoading(false)
+  }
+
+  const handleSearch = () => {
+    let temp = [...rawRequests]
+    if (statusFilter !== 'Semua') {
+      temp = temp.filter(r => r.status === statusFilter)
+    }
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase()
+      temp = temp.filter(r => 
+        r.users?.full_name?.toLowerCase().includes(q) || 
+        r.users?.nik?.toLowerCase().includes(q) ||
+        r.id?.toLowerCase().includes(q)
+      )
+    }
+    setRequests(temp)
   }
 
   const handleAction = async (status: 'Disetujui' | 'Tidak Disetujui') => {
@@ -118,16 +140,36 @@ export default function PersetujuanPage() {
           </div>
        </div>
 
-       {/* Filters */}
-       <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
-          <div className="flex-1 relative">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-             <input type="text" placeholder="Search..." className="w-full border border-zinc-200 rounded-xl pl-12 pr-4 py-2.5 text-sm focus:outline-none focus:border-brand-red shadow-sm" />
-          </div>
-          <select className="border border-zinc-200 rounded-xl px-4 py-2.5 text-sm font-bold text-zinc-500 min-w-[150px] outline-none shadow-sm">
-             <option>Filter Status</option>
-          </select>
-       </div>
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
+           <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+              <input 
+                 type="text" 
+                 placeholder="Search..." 
+                 value={searchQuery}
+                 onChange={e => setSearchQuery(e.target.value)}
+                 onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+                 className="w-full border border-zinc-200 rounded-xl pl-12 pr-4 py-2.5 text-sm focus:outline-none focus:border-brand-red shadow-sm text-black" 
+              />
+           </div>
+           <select 
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="border border-zinc-200 rounded-xl px-4 py-2.5 text-sm font-bold text-black min-w-[150px] outline-none shadow-sm bg-white"
+           >
+              <option value="Semua">Semua Status</option>
+              <option value="Proses">Proses / Pending</option>
+              <option value="Disetujui">Disetujui</option>
+              <option value="Tidak Disetujui">Tidak Disetujui / Ditolak</option>
+           </select>
+           <button 
+              onClick={handleSearch}
+              className="bg-[#B71C1C] text-white px-8 py-2.5 rounded-xl font-bold hover:bg-red-850 transition shadow-sm text-sm"
+           >
+              Cari
+           </button>
+        </div>
 
        {/* Table / Card List */}
        <div className="space-y-4">
@@ -434,8 +476,9 @@ export default function PersetujuanPage() {
           </div>
           <div className="flex flex-col">
             <h2 className="text-lg md:text-xl font-bold text-white tracking-tight leading-tight">Requests Persetujuan Presence</h2>
+            <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-0.5 mb-1">PT KAI Commuter</p>
             {viewMode !== 'LIST' && (
-              <span className="text-xs md:text-[14px] font-extrabold text-white/80">
+              <span className="text-xs md:text-[14px] font-extrabold text-white/80 mt-1">
                 {viewMode === 'FORM_UBAH' ? 'Ubah Jadwal' : viewMode === 'FORM_IZIN' ? 'Izin' : 'Dinas Luar'}
               </span>
             )}
