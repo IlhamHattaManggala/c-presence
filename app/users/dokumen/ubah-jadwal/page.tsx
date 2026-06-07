@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { FileText, ChevronLeft, Printer, Download } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/client'
+import { markSpecificNotificationAsReadAction } from '@/app/actions/user-actions'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 function SuratUbahJadwalContent() {
@@ -12,6 +13,7 @@ function SuratUbahJadwalContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const requestId = searchParams.get('id')
+  const notificationId = searchParams.get('notificationId')
 
   const [userData, setUserData] = useState<any>(null)
   const [requestData, setRequestData] = useState<any>(null)
@@ -28,23 +30,35 @@ function SuratUbahJadwalContent() {
   }, [])
 
   useEffect(() => {
-    const markNotificationsAsRead = async () => {
+    const markNotificationAsRead = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        await supabase
+        if (notificationId) {
+          await markSpecificNotificationAsReadAction(user.id, notificationId)
+          return
+        }
+
+        // Fallback: Cari notifikasi yang cocok berdasarkan user_id + reference_id
+        const { data: notifs } = await supabase
           .from('notifications')
-          .update({ is_read: true })
+          .select('id')
           .eq('user_id', user.id)
           .eq('is_read', false)
+          .eq('reference_id', requestId)
+          .limit(1)
+
+        if (notifs && notifs.length > 0) {
+          await markSpecificNotificationAsReadAction(user.id, notifs[0].id)
+        }
       } catch (err) {
         console.error('Error marking notifications as read:', err)
       }
     }
 
-    markNotificationsAsRead()
-  }, [])
+    if (requestId) markNotificationAsRead()
+  }, [requestId, notificationId])
 
   useEffect(() => {
     if (requestId) {

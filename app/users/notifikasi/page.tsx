@@ -1,33 +1,12 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, ChevronLeft } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
-import { createClient } from '@/lib/supabase/client'
 
 export default function NotifikasiMainPage() {
   const router = useRouter()
-  const supabase = createClient()
-
-  useEffect(() => {
-    const markNotificationsAsRead = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false)
-      } catch (err) {
-        console.error('Error marking notifications as read:', err)
-      }
-    }
-
-    markNotificationsAsRead()
-  }, [])
 
   return (
     <div className="bg-zinc-50 min-h-screen pb-32">

@@ -13,36 +13,49 @@ export default function RiwayatPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const markNotificationsAsRead = async () => {
+    const fetchRequests = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (user) {
+          // Fetch notifications with type APPROVAL_UPDATE for this user
+          const { data: notificationsData, error: notifError } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('type', 'APPROVAL_UPDATE')
+            .order('created_at', { ascending: false })
 
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false)
+          if (notifError) throw notifError
+
+          // Fetch corresponding approval requests for this user
+          const { data: approvalData, error: approvalError } = await supabase
+            .from('approval_requests')
+            .select('*')
+            .eq('user_id', user.id)
+
+          if (approvalError) throw approvalError
+
+          // Map notifications to approval requests using reference_id
+          const mapped = (notificationsData || []).map(notif => {
+            const req = (approvalData || []).find(r => r.id === notif.reference_id)
+            if (!req) return null
+            return {
+              id: req.id,
+              type: req.type,
+              status: req.status,
+              created_at: notif.created_at, // Use notification created date
+              notification_id: notif.id,
+              is_read: notif.is_read
+            }
+          }).filter(Boolean)
+
+          setRequests(mapped)
+        }
       } catch (err) {
-        console.error('Error marking notifications as read:', err)
+        console.error('Error fetching riwayat data:', err)
+      } finally {
+        setLoading(false)
       }
-    }
-
-    markNotificationsAsRead()
-  }, [])
-
-  useEffect(() => {
-    const fetchRequests = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from('approval_requests')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-        setRequests(data || [])
-      }
-      setLoading(false)
     }
     fetchRequests()
   }, [])
@@ -72,20 +85,26 @@ export default function RiwayatPage() {
             ) : (
               requests.map((item) => (
                 <div 
-                  key={item.id}
+                  key={item.notification_id}
                   onClick={() => {
-                    if (item.status === 'Disetujui') {
-                      const routeMap: Record<string, string> = {
-                        'DINAS_LUAR': '/users/dokumen/dinas-luar',
-                        'IZIN': '/users/dokumen/izin',
-                        'UBAH_JADWAL': '/users/dokumen/ubah-jadwal'
-                      }
-                      router.push(`${routeMap[item.type]}?id=${item.id}`)
+                    const routeMap: Record<string, string> = {
+                      'DINAS_LUAR': '/users/dokumen/dinas-luar',
+                      'IZIN': '/users/dokumen/izin',
+                      'UBAH_JADWAL': '/users/dokumen/ubah-jadwal'
+                    }
+                    if (routeMap[item.type]) {
+                      router.push(`${routeMap[item.type]}?id=${item.id}&notificationId=${item.notification_id}`)
                     }
                   }}
-                  className="bg-white border border-brand-red/40 rounded-xl p-4 flex flex-col cursor-pointer hover:bg-zinc-50 shadow-sm transition"
+                  className={`bg-white border ${!item.is_read ? 'border-brand-red/80 bg-red-50/10' : 'border-brand-red/40'} rounded-xl p-4 flex flex-col cursor-pointer hover:bg-zinc-50 shadow-sm transition relative`}
                 >
-                   <h3 className="text-sm font-bold text-zinc-900 mb-1">
+                   {!item.is_read && (
+                      <div className="absolute top-4 right-4 flex items-center space-x-1 bg-brand-red/10 px-2 py-0.5 rounded-full">
+                         <span className="w-1.5 h-1.5 rounded-full bg-brand-red animate-pulse"></span>
+                         <span className="text-[8px] font-bold text-brand-red uppercase tracking-wider">Baru</span>
+                      </div>
+                   )}
+                   <h3 className={`text-sm font-bold text-zinc-900 mb-1`}>
                       Status Pengajuan {item.type.replace('_', ' ').toLowerCase()}...
                    </h3>
                    <span className={`text-[11px] font-bold mb-1 ${item.status === 'Disetujui' ? 'text-green-600' : item.status === 'Proses' ? 'text-orange-500' : 'text-brand-red'}`}>

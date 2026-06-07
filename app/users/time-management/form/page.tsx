@@ -105,20 +105,24 @@ function TimeManagementFormContent() {
       fileUrl = publicUrl
     }
 
-    const { error } = await supabase.from('approval_requests').insert({
-      user_id: user.id,
-      type: typeMap[activeForm],
-      status: 'Proses',
-      alasan_penjelasan: formData.message || formData.reason,
-      tgl_permohonan: formData.start_date || new Date().toISOString().split('T')[0],
-      tgl_mulai_dinas: activeForm === 'dinas-luar' || activeForm === 'izin' ? formData.start_date : null,
-      tgl_selesai_dinas: activeForm === 'dinas-luar' ? formData.end_date : null,
-      shift_code_awal: activeForm === 'ubah-jadwal' ? (formData.shift_code_awal || userData?.shift_code || null) : null,
-      shift_code_akhir: activeForm === 'ubah-jadwal' ? formData.requested_shift : null,
-      kedudukan: userData?.stations?.name || null,
-      jabatan: userData?.position || null,
-      attachment_url: fileUrl
-    })
+    const { data: insertedData, error } = await supabase
+      .from('approval_requests')
+      .insert({
+        user_id: user.id,
+        type: typeMap[activeForm],
+        status: 'Proses',
+        alasan_penjelasan: formData.message || formData.reason,
+        tgl_permohonan: formData.start_date || new Date().toISOString().split('T')[0],
+        tgl_mulai_dinas: activeForm === 'dinas-luar' || activeForm === 'izin' ? formData.start_date : null,
+        tgl_selesai_dinas: activeForm === 'dinas-luar' ? formData.end_date : null,
+        shift_code_awal: activeForm === 'ubah-jadwal' ? (formData.shift_code_awal || userData?.shift_code || null) : null,
+        shift_code_akhir: activeForm === 'ubah-jadwal' ? formData.requested_shift : null,
+        kedudukan: userData?.stations?.name || null,
+        jabatan: userData?.position || null,
+        attachment_url: fileUrl
+      })
+      .select('id')
+      .single()
 
     if (error) {
       setModal({ isOpen: true, status: 'error', message: 'Gagal mengirim pengajuan: ' + error.message })
@@ -127,7 +131,9 @@ function TimeManagementFormContent() {
       await supabase.from('notifications').insert({
         user_id: user.id,
         title: `PENGAJUAN ${typeMap[activeForm].replace('_', ' ')}`,
-        message: `${userData?.full_name} mengajukan ${typeMap[activeForm].toLowerCase().replace('_', ' ')}.`
+        message: `${userData?.full_name} mengajukan ${typeMap[activeForm].toLowerCase().replace('_', ' ')}.`,
+        type: 'APPROVAL_UPDATE',
+        reference_id: insertedData?.id
       })
       
       setModal({ isOpen: true, status: 'success', message: 'Pengajuan berhasil dikirim!' })

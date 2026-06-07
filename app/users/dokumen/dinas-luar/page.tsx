@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { FileText, ChevronLeft, Printer, Download } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/client'
+import { markSpecificNotificationAsReadAction } from '@/app/actions/user-actions'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { StatusModal } from '@/components/StatusModal'
 
@@ -13,6 +14,7 @@ function SuratDinasLuarContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const requestId = searchParams.get('id')
+  const notificationId = searchParams.get('notificationId')
 
   const [loading, setLoading] = useState(false)
   const [userData, setUserData] = useState<any>(null)
@@ -44,23 +46,35 @@ function SuratDinasLuarContent() {
   }, [])
 
   useEffect(() => {
-    const markNotificationsAsRead = async () => {
+    const markNotificationAsRead = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        await supabase
+        if (notificationId) {
+          await markSpecificNotificationAsReadAction(user.id, notificationId)
+          return
+        }
+
+        // Fallback: Cari notifikasi yang cocok berdasarkan user_id + reference_id
+        const { data: notifs } = await supabase
           .from('notifications')
-          .update({ is_read: true })
+          .select('id')
           .eq('user_id', user.id)
           .eq('is_read', false)
+          .eq('reference_id', requestId)
+          .limit(1)
+
+        if (notifs && notifs.length > 0) {
+          await markSpecificNotificationAsReadAction(user.id, notifs[0].id)
+        }
       } catch (err) {
         console.error('Error marking notifications as read:', err)
       }
     }
 
-    markNotificationsAsRead()
-  }, [])
+    if (requestId) markNotificationAsRead()
+  }, [requestId, notificationId])
 
   useEffect(() => {
     if (requestId) {
@@ -82,25 +96,31 @@ function SuratDinasLuarContent() {
     setLoading(true)
     setModal({ isOpen: true, status: 'loading', message: 'Sedang memproses pengajuan dinas luar Anda...' })
 
-    const { error } = await supabase.from('approval_requests').insert({
-      user_id: userData.id,
-      type: 'DINAS_LUAR',
-      status: 'Proses',
-      alasan_penjelasan: formData.penjelasan,
-      tgl_mulai_dinas: formData.tanggalMulai,
-      tgl_selesai_dinas: formData.tanggalSelesai,
-      kedudukan: userData?.stations?.name || null,
-      jabatan: formData.jabatan || userData?.position || null
-    })
+    const { data: insertedData, error } = await supabase
+      .from('approval_requests')
+      .insert({
+        user_id: userData.id,
+        type: 'DINAS_LUAR',
+        status: 'Proses',
+        alasan_penjelasan: formData.penjelasan,
+        tgl_mulai_dinas: formData.tanggalMulai,
+        tgl_selesai_dinas: formData.tanggalSelesai,
+        kedudukan: userData?.stations?.name || null,
+        jabatan: formData.jabatan || userData?.position || null
+      })
+      .select('id')
+      .single()
 
     if (error) {
        setModal({ isOpen: true, status: 'error', message: 'Gagal: ' + error.message })
     } else {
-       await supabase.from('notifications').insert({
-         user_id: userData.id,
-         title: 'PENGAJUAN DINAS LUAR',
-         message: `${userData?.full_name} mengajukan dinas luar.`
-       })
+        await supabase.from('notifications').insert({
+          user_id: userData.id,
+          title: 'PENGAJUAN DINAS LUAR',
+          message: `${userData?.full_name} mengajukan dinas luar.`,
+          type: 'APPROVAL_UPDATE',
+          reference_id: insertedData?.id
+        })
 
        setModal({ isOpen: true, status: 'success', message: 'Pengajuan Dinas Luar berhasil dikirim!' })
     }

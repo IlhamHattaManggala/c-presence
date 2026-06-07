@@ -271,7 +271,7 @@ export default function PresencePage() {
             user_id: userData.id,
             title: 'Keterlambatan Presensi',
             message: `${userData.full_name} melakukan presensi terlambat pada jam ${now.toLocaleTimeString()}`,
-            type: 'warning'
+            type: 'PRESENCE_ALERT'
           })
         }
 
