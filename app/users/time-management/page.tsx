@@ -15,7 +15,7 @@ export default function TimeManagement() {
        href: '/users/time-management/form?type=ubah-jadwal' 
     },
     { 
-       title: 'Form Izin/Sakit', 
+       title: 'Form Izin', 
        icon: UserRoundPen, 
        href: '/users/time-management/form?type=izin' 
     },

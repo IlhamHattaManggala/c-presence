@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { Map, Marker } from 'pigeon-maps'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { deleteUserAction, createUserAction } from '@/app/actions/user-actions'
+import { deleteUserAction, createUserAction, updateUserAction } from '@/app/actions/user-actions'
 
 type TabType = 'STASIUN' | 'SHIFT' | 'USER'
 
@@ -114,8 +114,23 @@ export default function MasterDataPage() {
     }
 
     if (editingId) {
-      const res = await supabase.from(table).update(payload).eq(pkCol, editingId)
-      error = res.error
+      if (activeTab === 'USER') {
+        const actionResult = await updateUserAction(editingId, {
+          email: formData.email,
+          full_name: formData.full_name,
+          nik: formData.nik,
+          role: formData.role || 'user',
+          position: formData.position,
+          password: formData.password
+        })
+        if (!actionResult.success) {
+          setModal({ isOpen: true, status: 'error', message: 'Gagal memperbarui Pengguna: ' + actionResult.error })
+          return
+        }
+      } else {
+        const res = await supabase.from(table).update(payload).eq(pkCol, editingId)
+        error = res.error
+      }
     } else {
       if (activeTab === 'USER') {
         const actionResult = await createUserAction({
@@ -311,7 +326,7 @@ export default function MasterDataPage() {
              <div className="flex w-full md:w-auto space-x-2">
                 <div className="relative flex-1 md:w-64">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
-                    <input type="text" placeholder="Cari..." className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 md:py-3.5 text-xs md:text-sm focus:outline-none focus:border-brand-red font-medium text-zinc-700 shadow-sm" />
+                    <input type="text" placeholder="Cari..." className="w-full bg-white border border-zinc-200 rounded-xl pl-10 pr-4 py-2.5 md:py-3.5 text-xs md:text-sm focus:outline-none focus:border-brand-red font-medium text-black shadow-sm" />
                 </div>
                 <button onClick={openAddForm} className="md:hidden bg-brand-red text-white p-2.5 rounded-xl shadow-lg active:scale-95 transition-transform shrink-0">
                    <Plus size={20} />

@@ -1,20 +1,38 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, Download } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
-
-const DUMMY_SOP = [
-  { id: 1, title: 'SOP.KCL.1318 - Kartu Disabilitas', date: '25 Des 2025' },
-  { id: 2, title: 'SOP.KCL.0588 - Pin Ibu Hamil', date: '28 Des 2025' },
-  { id: 3, title: 'SOP.KCL.144 - SOP Lost and Found (Revisi)', date: '02 Jan 2026' },
-  { id: 4, title: 'SOP Informasi Stasiun Announcer Terbaru', date: '10 Jan 2026' },
-  { id: 5, title: 'SOP.KCL.086 - Passenger Service', date: '15 Jan 2026' },
-]
+import { createClient } from '@/lib/supabase/client'
 
 export default function DokumenPage() {
   const router = useRouter()
+  const supabase = createClient()
+  const [sops, setSops] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSops = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('sop_documents')
+          .select('*')
+          .eq('category', 'SOP')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        setSops(data || [])
+      } catch (err) {
+        console.error('Error fetching SOP documents:', err)
+        setSops([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchSops()
+  }, [])
 
   return (
     <div className="bg-white min-h-screen pb-32">
@@ -42,21 +60,40 @@ export default function DokumenPage() {
 
          {/* Document List */}
          <div className="space-y-3">
-            {DUMMY_SOP.map((item) => (
-              <div 
-                key={item.id}
-                className="bg-white border border-brand-red/40 rounded-xl p-4 flex justify-between cursor-pointer hover:bg-zinc-50 shadow-sm transition"
-              >
-                 <div className="flex flex-col space-y-3">
-                    <h3 className="text-[13px] font-bold text-zinc-900 leading-tight pr-4">{item.title}</h3>
-                    <div className="bg-brand-red text-white flex items-center px-2 py-1 rounded w-max space-x-1">
-                       <span className="text-[9px] font-medium">Dokumen</span>
-                       <Download size={10} />
-                    </div>
-                 </div>
-                 <span className="text-[10px] sm:text-xs text-zinc-500 font-medium whitespace-nowrap shrink-0">{item.date}</span>
+            {loading ? (
+              <div className="text-center py-8 text-zinc-400 text-xs font-semibold">Memuat dokumen SOP...</div>
+            ) : sops.length > 0 ? (
+              sops.map((item) => (
+                <div 
+                  key={item.id}
+                  onClick={() => {
+                    if (item.file_url && item.file_url !== '#') {
+                      window.open(item.file_url, '_blank')
+                    } else {
+                      alert('File PDF template contoh tidak tersedia.')
+                    }
+                  }}
+                  className="bg-white border border-brand-red/40 rounded-xl p-4 flex justify-between cursor-pointer hover:bg-zinc-50 shadow-sm transition"
+                >
+                   <div className="flex flex-col space-y-3">
+                      <h3 className="text-[13px] font-bold text-zinc-900 leading-tight pr-4">{item.title}</h3>
+                      <div className="bg-brand-red text-white flex items-center px-2 py-1 rounded w-max space-x-1">
+                         <span className="text-[9px] font-medium">Dokumen</span>
+                         <Download size={10} />
+                      </div>
+                   </div>
+                   <span className="text-[10px] sm:text-xs text-zinc-500 font-medium whitespace-nowrap shrink-0">
+                     {item.created_at 
+                       ? new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                       : item.date || '-'}
+                   </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-zinc-400 text-xs font-bold border border-zinc-200 border-dashed rounded-xl bg-zinc-50/50">
+                 Belum ada dokumen SOP yang diunggah.
               </div>
-            ))}
+            )}
          </div>
       </div>
 

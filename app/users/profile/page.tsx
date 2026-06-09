@@ -13,7 +13,7 @@ export default function UserProfile() {
 
   const [userData, setUserData] = React.useState<any>(null)
   const [editForm, setEditForm] = React.useState<any>({
-    full_name: '', phone_number: '', nik: '', position: '', shift_code: '', station_id: '',
+    full_name: '', nik: '', position: '', shift_code: '', station_id: '',
     email: '', password: '', dinasan_start_time: '', dinasan_end_time: ''
   })
   const [stations, setStations] = React.useState<any[]>([])
@@ -48,7 +48,6 @@ export default function UserProfile() {
           setUserData(profile)
           setEditForm({
             full_name: profile.full_name || '',
-            phone_number: profile.phone_number || '',
             nik: profile.nik || '',
             position: profile.position || '',
             shift_code: profile.shift_code || '',
@@ -65,7 +64,6 @@ export default function UserProfile() {
             full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
             email: user.email,
             position: 'Karyawan Baru',
-            phone_number: '',
             nik: '',
             shift_code: '',
             station_id: '',
@@ -96,7 +94,6 @@ export default function UserProfile() {
         .upsert({
           id: userData.id,
           full_name: editForm.full_name,
-          phone_number: editForm.phone_number,
           nik: editForm.nik,
           position: editForm.position,
           station_id: editForm.station_id || null,
@@ -194,7 +191,6 @@ export default function UserProfile() {
 
   const personalInfo = [
     { label: 'Email', value: userData?.email || '-' },
-    { label: 'Nomor Telpon', value: userData?.phone_number || '-' },
     { label: 'Password', value: '***************' },
     { label: 'ID/NIK', value: formatNIK(userData?.nik) },
     { label: 'Posisi', value: userData?.position || '-' },
@@ -382,15 +378,6 @@ export default function UserProfile() {
                 />
               </div>
 
-               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-zinc-700">Nomor Telpon</label>
-                <input 
-                  type="tel" 
-                  value={editForm.phone_number}
-                  onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})}
-                  className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                />
-              </div>
 
               <div className="space-y-1.5 pt-2 border-t border-zinc-50">
                 <p className="text-[10px] font-black text-brand-red uppercase tracking-widest mb-2">Akun Login</p>

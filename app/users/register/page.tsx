@@ -25,7 +25,6 @@ export default function UserRegisterPage() {
     nama: '',
     email: '',
     nik: '',
-    phone: '',
     password: '',
   })
 
@@ -62,7 +61,6 @@ export default function UserRegisterPage() {
         full_name: formData.nama,
         email: formData.email,
         nik: formData.nik,
-        phone_number: formData.phone,
         role: 'user',
         position: 'Passenger Service',
       }
@@ -145,18 +143,6 @@ export default function UserRegisterPage() {
                 placeholder="Masukkan NIK" 
                 value={formData.nik}
                 onChange={(e) => setFormData({...formData, nik: e.target.value})}
-                required
-                className="w-full h-11 border border-brand-red rounded-lg px-4 text-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-red"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-lg font-medium text-black">Nomor Telepon</label>
-              <input 
-                type="tel" 
-                placeholder="Masukkan Nomor Telepon" 
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
                 required
                 className="w-full h-11 border border-brand-red rounded-lg px-4 text-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand-red"
               />

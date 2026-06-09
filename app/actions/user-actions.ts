@@ -60,7 +60,7 @@ export async function bulkImportEmployees(employeesData: any[]) {
           // 1. Create Auth User directly (mark email as confirmed)
           const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
             email: data.email,
-            password: 'password123',
+            password: data.password || 'password123',
             email_confirm: true
           })
 
@@ -78,7 +78,6 @@ export async function bulkImportEmployees(employeesData: any[]) {
               nik: data.nik,
               full_name: data.full_name,
               position: data.position,
-              phone_number: data.phone_number,
               station_id: data.station_id,
               shift_code: data.shift_code,
               role: 'user'
@@ -184,6 +183,64 @@ export async function markSpecificNotificationAsReadAction(userId: string, notif
 
     if (error) {
       return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function updateUserAction(userId: string, userData: {
+  email: string
+  full_name: string
+  nik?: string
+  role: 'user' | 'admin'
+  position?: string
+  password?: string
+}) {
+  try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // 1. Update Auth data if password/email is provided
+    const authUpdatePayload: any = {}
+    if (userData.password && userData.password.trim() !== '') {
+      authUpdatePayload.password = userData.password
+    }
+    if (userData.email) {
+      authUpdatePayload.email = userData.email
+    }
+
+    if (Object.keys(authUpdatePayload).length > 0) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, authUpdatePayload)
+      if (authError) {
+        return { success: false, error: authError.message }
+      }
+    }
+
+    // 2. Update public.users
+    const { error: dbError } = await supabaseAdmin
+      .from('users')
+      .update({
+        email: userData.email,
+        full_name: userData.full_name,
+        nik: userData.nik || null,
+        role: userData.role || 'user',
+        position: userData.position || null
+      })
+      .eq('id', userId)
+
+    if (dbError) {
+      return { success: false, error: dbError.message }
     }
 
     return { success: true }

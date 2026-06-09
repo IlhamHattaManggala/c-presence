@@ -137,6 +137,16 @@ function SuratIzinContent() {
   if (requestId && requestData) {
     return (
       <div className="bg-white min-h-screen pb-32">
+        <style dangerouslySetInnerHTML={{__html: `
+          @media print {
+            @page {
+              margin: 0;
+            }
+            body {
+              margin: 1.6cm;
+            }
+          }
+        `}} />
         {/* Header (Hidden when printing) */}
         <div className="bg-brand-red pt-12 pb-6 px-6 relative print:hidden">
           <div className="max-w-4xl mx-auto flex items-center relative z-10">
@@ -160,27 +170,27 @@ function SuratIzinContent() {
         {/* Paper Container */}
         <div className="max-w-3xl mx-auto px-8 py-10 mt-6 border border-zinc-200 rounded-xl shadow-md bg-white print:border-none print:shadow-none print:mt-0 print:py-0 print:px-0">
           <div className="flex justify-between items-center border-b-2 border-zinc-800 pb-4 mb-6">
-            <div className="flex flex-col">
-              <div className="flex items-center space-x-1">
-                <span className="text-3xl font-black text-[#003FE1] italic">KAI</span>
-                <span className="text-xs font-bold text-red-600 uppercase mt-2">Commuter</span>
-              </div>
-              <span className="text-[10px] text-zinc-500 font-bold mt-1 uppercase">PT KAI Commuter Jabodetabek</span>
+            <div className="relative w-44 h-14">
+              <Image 
+                src="/images/logos/Logo_KAI_Commuter.webp" 
+                alt="KAI Commuter Logo" 
+                fill
+                className="object-contain object-left"
+              />
             </div>
             <div className="text-right">
               <h2 className="text-lg font-extrabold text-zinc-900 uppercase">SURAT IZIN DINASAN</h2>
-              <span className="text-xs text-emerald-600 font-bold uppercase">STATUS: DISETUJUI</span>
+              <span className="text-xs text-emerald-600 font-bold uppercase">DISETUJUI</span>
             </div>
           </div>
 
-          <div className="text-center my-8">
+          <div className="text-center my-4">
             <h3 className="text-base font-bold text-zinc-900 underline uppercase tracking-wide">
-              SURAT PERNYATAAN IZIN PEGAWAI
+              SURAT PERNYATAAN IZIN
             </h3>
-            <span className="text-xs text-zinc-400">Nomor: SKI/{requestData.id.substring(0, 8).toUpperCase()}/{new Date(requestData.created_at).getFullYear()}</span>
           </div>
 
-          <div className="space-y-6 text-sm text-zinc-800 leading-relaxed font-medium">
+          <div className="space-y-4 text-sm text-zinc-800 leading-relaxed font-medium">
             <p>Yang bertanda tangan di bawah ini menerangkan bahwa:</p>
             
             <div className="grid grid-cols-3 gap-y-2 border border-zinc-200 p-4 bg-zinc-50 rounded-lg max-w-xl">
@@ -213,16 +223,15 @@ function SuratIzinContent() {
           </div>
 
           {/* Signature basah */}
-          <div className="mt-16 grid grid-cols-2 text-center text-sm font-bold text-zinc-800">
+          <div className="mt-8 grid grid-cols-2 text-center text-sm font-bold text-zinc-800">
             <div className="flex flex-col items-center">
-              <span>Mengetahui,</span>
-              <span>PT KAI Commuter</span>
-              <div className="h-24"></div>
-              <span className="border-t border-zinc-400 w-44 pt-1 font-black">Admin / Staf Stasiun</span>
+              <span>Mengetahui Pengawas,</span>
+              <div className="h-12"></div>
+              <span className="border-t border-zinc-400 w-44 pt-1 font-black">{requestData.approved_by_name || 'Pengawas'}</span>
             </div>
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center justify-end">
               <span>Petugas Yang Bertanggung Jawab,</span>
-              <div className="h-24"></div>
+              <div className="h-12"></div>
               <span className="border-t border-zinc-400 w-44 pt-1 font-black">{userData?.full_name}</span>
             </div>
           </div>
@@ -272,7 +281,7 @@ function SuratIzinContent() {
          {/* KAI Logo */}
          <div className="w-full mb-8">
             <Image 
-               src="/images/logo splash.png" 
+               src="/images/logos/Logo_KAI_Commuter.webp" 
                alt="KAI Commuter" 
                width={160} 
                height={60} 

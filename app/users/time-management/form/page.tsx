@@ -67,6 +67,31 @@ function TimeManagementFormContent() {
   }, [supabase])
 
   const handleSubmit = async () => {
+    // Validasi input
+    if (activeForm === 'dinas-luar') {
+      if (!formData.start_date || !formData.end_date) {
+        setModal({ isOpen: true, status: 'error', message: 'Harap lengkapi Tanggal Mulai dan Tanggal Selesai dinas.' })
+        return
+      }
+    } else {
+      // ubah-jadwal atau izin
+      if (!formData.start_date) {
+        setModal({ isOpen: true, status: 'error', message: 'Harap pilih Tanggal pengajuan.' })
+        return
+      }
+    }
+
+    if (activeForm === 'ubah-jadwal' && !formData.requested_shift) {
+      setModal({ isOpen: true, status: 'error', message: 'Harap pilih Kode Dinasan baru.' })
+      return
+    }
+
+    const explanation = formData.message || formData.reason
+    if (!explanation.trim()) {
+      setModal({ isOpen: true, status: 'error', message: 'Harap isi Penjelasan / Alasan pengajuan.' })
+      return
+    }
+
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -111,15 +136,15 @@ function TimeManagementFormContent() {
         user_id: user.id,
         type: typeMap[activeForm],
         status: 'Proses',
-        alasan_penjelasan: formData.message || formData.reason,
-        tgl_permohonan: formData.start_date || new Date().toISOString().split('T')[0],
-        tgl_mulai_dinas: activeForm === 'dinas-luar' || activeForm === 'izin' ? formData.start_date : null,
-        tgl_selesai_dinas: activeForm === 'dinas-luar' ? formData.end_date : null,
+        alasan_penjelasan: explanation,
+        tgl_permohonan: formData.start_date ? formData.start_date : new Date().toISOString().split('T')[0],
+        tgl_mulai_dinas: (activeForm === 'dinas-luar' || activeForm === 'izin') && formData.start_date ? formData.start_date : null,
+        tgl_selesai_dinas: activeForm === 'dinas-luar' && formData.end_date ? formData.end_date : null,
         shift_code_awal: activeForm === 'ubah-jadwal' ? (formData.shift_code_awal || userData?.shift_code || null) : null,
         shift_code_akhir: activeForm === 'ubah-jadwal' ? formData.requested_shift : null,
         kedudukan: userData?.stations?.name || null,
         jabatan: userData?.position || null,
-        attachment_url: fileUrl
+        lampiran_dokumentasi_url: fileUrl
       })
       .select('id')
       .single()

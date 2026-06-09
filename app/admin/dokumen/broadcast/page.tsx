@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Radio, Search, Edit3, Eye, X, FileType, Send, Copy } from 'lucide-react'
+import { Radio, Search, Edit3, Eye, X, FileType, Send, Copy, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { ConfirmModal } from '@/components/ConfirmModal'
@@ -207,15 +207,9 @@ export default function BroadcastAdminPage() {
              </div>
           </div>
 
-          <div className="flex justify-end mb-6">
-            <button onClick={openAddModal} className="bg-[#003FE1] text-white px-6 md:px-8 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-xl hover:bg-blue-800 transition">
-              Tambah Informasi Broadcast
-            </button>
-          </div>
-
           {/* Search & Filter Toolbar */}
-          <div className="flex flex-col md:flex-row justify-end items-end gap-6 mb-8 w-full">
-            <div className="w-full md:w-72">
+          <div className="flex flex-col md:flex-row items-end gap-6 mb-8 w-full">
+            <div className="w-full md:flex-1">
               <label className="block text-sm font-bold text-zinc-700 mb-3">Pencarian</label>
               <div className="flex space-x-2">
                 <div className="bg-[#B71C1C] text-white p-2.5 rounded-lg flex items-center justify-center shrink-0"><Search size={18} /></div>
@@ -252,6 +246,11 @@ export default function BroadcastAdminPage() {
                 <Search size={16} /><span>Cari</span>
               </button>
             </div>
+            <div className="w-full md:w-auto shrink-0">
+              <button onClick={openAddModal} className="bg-[#003FE1] text-white w-full md:w-auto px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-xl hover:bg-blue-800 transition">
+                Tambah Informasi Broadcast
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0 text-center md:text-left">
@@ -268,20 +267,19 @@ export default function BroadcastAdminPage() {
                      <th className="px-6 py-6 text-sm font-bold w-16 text-left">No</th>
                      <th className="px-6 py-6 text-sm font-bold text-left">Judul dan Keterangan Informasi</th>
                      <th className="px-6 py-6 text-sm font-bold text-right">Status</th>
-                     <th className="px-6 py-6 text-sm font-bold text-right w-44 pr-12">Aksi</th>
-                     <th className="px-6 py-6 text-sm font-bold w-16"></th>
+                     <th className="px-6 py-6 text-sm font-bold text-right w-56 pr-8">Aksi</th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-zinc-50 text-sm">
                    {loading ? (
-                     <tr><td colSpan={5} className="py-20 text-center">
+                     <tr><td colSpan={4} className="py-20 text-center">
                        <div className="flex flex-col items-center justify-center space-y-4">
                          <div className="w-10 h-10 border-4 border-brand-red border-t-transparent rounded-full animate-spin"></div>
                          <p className="text-zinc-500 font-medium">Memuat data broadcast...</p>
                        </div>
                      </td></tr>
                    ) : broadcasts.length === 0 ? (
-                     <tr><td colSpan={5} className="py-20 text-center text-zinc-500 font-medium italic">Belum ada data broadcast.</td></tr>
+                     <tr><td colSpan={4} className="py-20 text-center text-zinc-500 font-medium italic">Belum ada data broadcast.</td></tr>
                    ) : (
                      broadcasts.map((item, idx) => (
                        <tr key={item.id} className="hover:bg-zinc-50/50 transition group">
@@ -292,15 +290,40 @@ export default function BroadcastAdminPage() {
                              {item.is_active ? 'Aktif' : 'Tidak Aktif'}
                            </span>
                          </td>
-                         <td className="px-6 py-6 text-right w-44 pr-12">
-                           <div className="flex items-center justify-end space-x-6">
-                             <button onClick={() => openDetailModal(item)} className="text-green-600 hover:scale-110 transition"><Eye size={20}/></button>
-                             <button onClick={() => openEditModal(item)} className="text-orange-400 hover:scale-110 transition"><Edit3 size={20}/></button>
-                             <button onClick={() => handleDelete(item.id)} className="text-[#8B0000] hover:scale-110 transition"><X size={18} /></button>
+                         <td className="px-6 py-6 text-right w-56 pr-8">
+                           <div className="flex items-center justify-end space-x-2.5">
+                             <button 
+                               onClick={() => {
+                                 navigator.clipboard.writeText(item.title)
+                                 setModal({ isOpen: true, status: 'success', message: 'Judul informasi berhasil disalin!' })
+                               }} 
+                               className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                               title="Salin Judul"
+                             >
+                               <Copy size={16} />
+                             </button>
+                             <button 
+                               onClick={() => openDetailModal(item)} 
+                               className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all"
+                               title="Lihat Detail"
+                             >
+                               <Eye size={16} />
+                             </button>
+                             <button 
+                               onClick={() => openEditModal(item)} 
+                               className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-xl transition-all"
+                               title="Edit"
+                             >
+                               <Edit3 size={16} />
+                             </button>
+                             <button 
+                               onClick={() => handleDelete(item.id)} 
+                               className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-all"
+                               title="Hapus"
+                             >
+                               <Trash2 size={16} />
+                             </button>
                            </div>
-                         </td>
-                         <td className="px-6 py-6 text-right">
-                           <button className="text-zinc-300 hover:text-zinc-500 transition-colors"><Copy size={22} strokeWidth={1.5} /></button>
                          </td>
                        </tr>
                      ))
@@ -331,12 +354,35 @@ export default function BroadcastAdminPage() {
                           </span>
                        </div>
                        <div className="flex justify-between items-center pt-4 border-t border-zinc-50">
-                           <div className="flex items-center space-x-4">
-                              <button onClick={() => openDetailModal(item)} className="text-green-600"><Eye size={18}/></button>
-                              <button onClick={() => openEditModal(item)} className="text-orange-400"><Edit3 size={18}/></button>
-                              <button onClick={() => handleDelete(item.id)} className="text-red-600"><X size={16} /></button>
+                           <div className="flex items-center space-x-2">
+                              <button 
+                                onClick={() => openDetailModal(item)} 
+                                className="p-2 bg-emerald-50 text-emerald-600 active:bg-emerald-100 rounded-xl transition-all"
+                              >
+                                <Eye size={16}/>
+                              </button>
+                              <button 
+                                onClick={() => openEditModal(item)} 
+                                className="p-2 bg-amber-50 text-amber-600 active:bg-amber-100 rounded-xl transition-all"
+                              >
+                                <Edit3 size={16}/>
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(item.id)} 
+                                className="p-2 bg-red-50 text-red-600 active:bg-red-100 rounded-xl transition-all"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                            </div>
-                          <button className="text-zinc-300"><Copy size={18}/></button>
+                           <button 
+                             onClick={() => {
+                               navigator.clipboard.writeText(item.title)
+                               setModal({ isOpen: true, status: 'success', message: 'Judul informasi berhasil disalin!' })
+                             }}
+                             className="p-2 bg-blue-50 text-blue-600 active:bg-blue-100 rounded-xl transition-all"
+                           >
+                             <Copy size={16}/>
+                           </button>
                        </div>
                     </div>
                  ))

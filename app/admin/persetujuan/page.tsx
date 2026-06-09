@@ -79,9 +79,32 @@ export default function PersetujuanPage() {
 
   const handleAction = async (status: 'Disetujui' | 'Tidak Disetujui') => {
     if (!selectedRequest) return
+    
+    setModal({ isOpen: true, status: 'loading', message: 'Memproses persetujuan...' })
+    
+    const updatePayload: any = { status }
+    
+    if (status === 'Disetujui') {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', user.id)
+            .single()
+          if (profile?.full_name) {
+            updatePayload.approved_by_name = profile.full_name
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching approver profile:", err)
+      }
+    }
+
     const { error } = await supabase
       .from('approval_requests')
-      .update({ status })
+      .update(updatePayload)
       .eq('id', selectedRequest.id)
     
     if (error) {

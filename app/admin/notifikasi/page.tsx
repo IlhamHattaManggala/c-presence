@@ -126,11 +126,11 @@ export default function NotifikasiAdminPage() {
               {/* Header Logos */}
               <div className="flex justify-between items-center mb-10 pb-4 border-b border-zinc-100">
                   <div className="flex flex-col">
-                     <div className="relative w-24 h-12">
+                     <div className="relative w-32 h-12">
                         <img 
-                          src="/images/logo splash.png" 
+                          src="/images/logos/Logo_KAI_Commuter.webp" 
                           alt="KAI Commuter" 
-                          className="object-contain"
+                          className="object-contain w-full h-full"
                         />
                      </div>
                   </div>

@@ -42,3 +42,4 @@ next-env.d.ts
 
 supabase_schema_changes.sql
 implementation_plan.md
+akun.md
