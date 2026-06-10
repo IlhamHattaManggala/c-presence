@@ -43,3 +43,6 @@ next-env.d.ts
 supabase_schema_changes.sql
 implementation_plan.md
 akun.md
+Deskripsi logika presensi ke output excel SLA.pdf
+*.pdf
+*.sql

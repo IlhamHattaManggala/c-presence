@@ -354,7 +354,7 @@ export default function AdminDashboardPage() {
                    
                    <div className="text-center mb-4">
                       <h4 className="text-sm md:text-base font-extrabold text-brand-red leading-tight">
-                         Apresiasi Pegawai Outsourching<br/>KAI Commuter
+                         Apresiasi Pegawai Outsourcing<br/>KAI Commuter
                       </h4>
                    </div>
                    

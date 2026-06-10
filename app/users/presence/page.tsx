@@ -129,30 +129,53 @@ export default function PresencePage() {
     }
   }, [])
 
-  // Effect: cari stasiun TERDEKAT dan cek apakah dalam radius-nya
+  // Effect: cari stasiun penempatan pegawai dan cek apakah dalam radius-nya
   useEffect(() => {
-    if (userLat !== null && userLng !== null && allStations.length > 0) {
-      // Hitung jarak ke setiap stasiun
-      let closest: any = null
-      let closestDist = Infinity
+    if (userLat !== null && userLng !== null && allStations.length > 0 && userData) {
+      if (userData.station_id) {
+        // Cari stasiun yang sesuai dengan penempatan pegawai
+        const assigned = allStations.find(s => s.id === userData.station_id)
+        if (assigned) {
+          const dist = getDistance(userLat, userLng, assigned.latitude, assigned.longitude)
+          setNearestStation(assigned)
+          setDistance(Math.round(dist))
 
-      for (const station of allStations) {
-        const dist = getDistance(userLat, userLng, station.latitude, station.longitude)
-        if (dist < closestDist) {
-          closestDist = dist
-          closest = station
+          // Pindah ke kamera jika dalam radius stasiun penempatan
+          if (dist <= (assigned.radius_meters || 600)) {
+            setViewMode('camera')
+          } else {
+            setViewMode('map')
+          }
+        } else {
+          // Fallback ke cari stasiun terdekat jika stasiun penempatan tidak ditemukan di master data
+          let closest: any = null
+          let closestDist = Infinity
+
+          for (const station of allStations) {
+            const dist = getDistance(userLat, userLng, station.latitude, station.longitude)
+            if (dist < closestDist) {
+              closestDist = dist
+              closest = station
+            }
+          }
+
+          setNearestStation(closest)
+          setDistance(Math.round(closestDist))
+
+          if (closest && closestDist <= (closest.radius_meters || 600)) {
+            setViewMode('camera')
+          } else {
+            setViewMode('map')
+          }
         }
-      }
-
-      setNearestStation(closest)
-      setDistance(Math.round(closestDist))
-
-      // Pindah ke kamera jika dalam radius stasiun terdekat
-      if (closest && closestDist <= (closest.radius_meters || 600)) {
-        setViewMode('camera')
+      } else {
+        // Pegawai tidak memiliki stasiun penempatan yang diatur oleh admin
+        setNearestStation(null)
+        setDistance(null)
+        setViewMode('map')
       }
     }
-  }, [userLat, userLng, allStations])
+  }, [userLat, userLng, allStations, userData])
 
   const [flash, setFlash] = useState(false)
 
@@ -483,6 +506,18 @@ export default function PresencePage() {
                 </p>
                 <h3 className="text-base font-bold text-zinc-800 mb-1">Anda Terlalu Jauh</h3>
                 <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 600} meter dari {nearestStation.name}.</p>
+              </div>
+          </div>
+        )}
+
+        {!isGettingLocation && userData && !userData.station_id && (
+          <div className="absolute bottom-24 left-4 right-4 z-20 flex justify-center pointer-events-none">
+              <div className="bg-white/95 backdrop-blur-md p-4 rounded-[24px] shadow-xl border border-red-100 text-center animate-in slide-in-from-bottom-5 w-full max-w-sm pointer-events-auto">
+                <p className="text-[9px] font-bold text-red-600 mb-1.5 bg-red-50 py-1 px-3 rounded-full inline-block">
+                   BELUM DIATUR
+                </p>
+                <h3 className="text-base font-bold text-zinc-800 mb-1">Stasiun Belum Ditentukan</h3>
+                <p className="text-zinc-500 text-[11px] leading-tight">Anda belum memiliki stasiun penempatan yang terdaftar. Harap hubungi administrator untuk mengatur stasiun dinas Anda.</p>
               </div>
           </div>
         )}

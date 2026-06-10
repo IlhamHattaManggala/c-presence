@@ -19,7 +19,7 @@ export default function PendaftaranPegawaiPage() {
   const [stations, setStations] = useState<any[]>([])
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [editFormData, setEditFormData] = useState<any>({
-    nik: '', full_name: '', position: '', station_id: '', shift_code: '', note: ''
+    nik: '', full_name: '', position: '', station_id: '', shift_code: '', sla_manual: 0, note: ''
   })
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -235,6 +235,7 @@ export default function PendaftaranPegawaiPage() {
       position: employee.position || '',
       station_id: employee.station_id || '',
       shift_code: employee.shift_code || '',
+      sla_manual: employee.sla_manual || 0,
       note: ''
     })
     setActiveTab('DATA')
@@ -281,7 +282,8 @@ export default function PendaftaranPegawaiPage() {
       full_name: editFormData.full_name,
       position: editFormData.position,
       station_id: editFormData.station_id || null,
-      shift_code: editFormData.shift_code
+      shift_code: editFormData.shift_code,
+      sla_manual: Number(editFormData.sla_manual) || 0
     }
 
     const { error } = await supabase
@@ -298,6 +300,9 @@ export default function PendaftaranPegawaiPage() {
       if (selectedEmployee.full_name !== editFormData.full_name) changes.push(`Nama: ${selectedEmployee.full_name} -> ${editFormData.full_name}`)
       if (selectedEmployee.position !== editFormData.position) changes.push(`Posisi/Jabatan: ${selectedEmployee.position} -> ${editFormData.position}`)
       if (selectedEmployee.shift_code !== editFormData.shift_code) changes.push(`Kode Dinas: ${selectedEmployee.shift_code || '-'} -> ${editFormData.shift_code || '-'}`)
+      if (Number(selectedEmployee.sla_manual || 0) !== Number(editFormData.sla_manual)) {
+         changes.push(`SLA Manual: ${selectedEmployee.sla_manual || 0} -> ${editFormData.sla_manual}`)
+      }
       if (selectedEmployee.station_id !== editFormData.station_id) {
          const oldStation = stations.find(s => s.id === selectedEmployee.station_id)?.name || '-'
          const newStation = stations.find(s => s.id === editFormData.station_id)?.name || '-'
@@ -690,7 +695,7 @@ export default function PendaftaranPegawaiPage() {
                          <tr>
                             <th className="px-4 py-4 text-xs font-black uppercase text-center w-24">Status</th>
                             <th className="px-4 py-4 text-xs font-black uppercase">Email</th>
-                            <th className="px-4 py-4 text-xs font-black uppercase">NIK</th>
+                            <th className="px-4 py-4 text-xs font-black uppercase">ID</th>
                             <th className="px-4 py-4 text-xs font-black uppercase">Nama</th>
                             <th className="px-4 py-4 text-xs font-black uppercase">Posisi</th>
                             <th className="px-4 py-4 text-xs font-black uppercase">Stasiun</th>
@@ -795,7 +800,7 @@ export default function PendaftaranPegawaiPage() {
                             <tr className="divide-x divide-zinc-700/50">
                                <th className="px-2 py-5 text-sm font-bold w-12 text-center">No</th>
                                <th className="px-4 py-5 text-sm font-bold text-center">Email</th>
-                               <th className="px-4 py-5 text-sm font-bold w-32 text-center">NIK</th>
+                               <th className="px-4 py-5 text-sm font-bold w-32 text-center">ID</th>
                                <th className="px-4 py-5 text-sm font-bold w-48 text-center">Nama</th>
                                <th className="px-4 py-5 text-sm font-bold w-48 text-center">Posisi</th>
                                <th className="px-4 py-5 text-sm font-bold w-32 text-center">Stasiun</th>
@@ -946,20 +951,33 @@ export default function PendaftaranPegawaiPage() {
                           </select>
                        </div>
                        <div className="space-y-1">
-                          <label className="text-sm font-extrabold text-zinc-800">Kode Dinasan (Shift)</label>
-                          <select 
-                             value={editFormData.shift_code || ''} 
-                             onChange={e => setEditFormData({...editFormData, shift_code: e.target.value})} 
-                             className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white"
-                          >
-                             <option value="">Pilih Kode Dinas</option>
-                             {shifts.map(sh => (
-                               <option key={sh.code} value={sh.code}>
-                                 {sh.code} {sh.start_time && sh.end_time ? `(${sh.start_time.substring(0, 5)} - ${sh.end_time.substring(0, 5)})` : ''}
-                               </option>
-                             ))}
-                          </select>
-                       </div>
+                           <label className="text-sm font-extrabold text-zinc-800">Kode Dinasan (Shift)</label>
+                           <select 
+                              value={editFormData.shift_code || ''} 
+                              onChange={e => setEditFormData({...editFormData, shift_code: e.target.value})} 
+                              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white"
+                           >
+                              <option value="">Pilih Kode Dinas</option>
+                              {shifts.map(sh => (
+                                <option key={sh.code} value={sh.code}>
+                                  {sh.code} {sh.start_time && sh.end_time ? `(${sh.start_time.substring(0, 5)} - ${sh.end_time.substring(0, 5)})` : ''}
+                                </option>
+                              ))}
+                           </select>
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-sm font-extrabold text-zinc-800">Nilai SLA Manual</label>
+                           <input 
+                              type="number" 
+                              min={0}
+                              max={5000}
+                              value={editFormData.sla_manual !== undefined ? editFormData.sla_manual : 0} 
+                              onChange={e => setEditFormData({...editFormData, sla_manual: parseInt(e.target.value) || 0})} 
+                              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm font-bold text-black focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red bg-white" 
+                              placeholder="Masukkan Nilai SLA Manual" 
+                           />
+                           <p className="text-[10px] text-zinc-400 font-semibold mt-1">Digunakan untuk penyesuaian rekap bulanan (contoh: 100 poin).</p>
+                        </div>
 
                        {/* Full Width */}
                        <div className="col-span-1 md:col-span-2 space-y-1">

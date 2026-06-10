@@ -34,13 +34,7 @@ export default function DokumenPresensiPage() {
      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
    })
    const [exportLoading, setExportLoading] = useState(false)
-
-   const docCards = [
-     { title: 'DOKUMEN KEHADIRAN', id: 'HADIR' },
-     { title: 'DOKUMEN KETELAMBATAN', id: 'TELAT' },
-     { title: 'DOKUMEN KETIDAKHADIRAN', id: 'TIDAK_HADIR' },
-     { title: 'DOKUMEN KESELURUHAN', id: 'ALL' },
-   ]
+   const [exportAttLoading, setExportAttLoading] = useState(false)
 
    const handleExportExcel = async () => {
       try {
@@ -104,6 +98,62 @@ export default function DokumenPresensiPage() {
          setModal({ isOpen: true, status: 'error', message: 'Gagal mengekspor laporan: ' + err.message })
       } finally {
          setExportLoading(false)
+      }
+   }
+
+   const handleExportAttendanceExcel = async () => {
+      try {
+         setExportAttLoading(true)
+         setModal({ isOpen: true, status: 'loading', message: 'Mempersiapkan data laporan Kehadiran Pegawai...' })
+
+         // 1. Fetch users
+         const { data: users, error: usersError } = await supabase
+           .from('users')
+           .select('*, stations(name)')
+           .eq('role', 'user')
+           .order('full_name')
+
+         if (usersError) throw usersError
+
+         // 2. Fetch attendance for that month
+         const [year, month] = exportMonth.split('-').map(Number)
+         const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+         const lastDay = new Date(year, month, 0).getDate()
+         const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`
+
+         const { data: attendance, error: attError } = await supabase
+           .from('attendance')
+           .select('*')
+           .gte('date', startDate)
+           .lte('date', endDate)
+
+         if (attError) throw attError
+
+         // 3. Generate Excel
+         const { generateAttendanceReport } = await import('@/lib/excel-export')
+         const excelData = generateAttendanceReport({
+            users: users || [],
+            attendance: attendance || [],
+            monthStr: exportMonth
+         })
+
+         // 4. Trigger download
+         const blob = new Blob([excelData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+         const url = window.URL.createObjectURL(blob)
+         const a = document.createElement('a')
+         a.href = url
+         a.download = `LAPORAN DETAIL KEHADIRAN PETUGAS - ${exportMonth}.xlsx`
+         document.body.appendChild(a)
+         a.click()
+         window.URL.revokeObjectURL(url)
+         document.body.removeChild(a)
+
+         setModal({ isOpen: true, status: 'success', message: 'Laporan Kehadiran Pegawai berhasil diekspor!' })
+      } catch (err: any) {
+         console.error(err)
+         setModal({ isOpen: true, status: 'error', message: 'Gagal mengekspor laporan: ' + err.message })
+      } finally {
+         setExportAttLoading(false)
       }
    }
 
@@ -284,90 +334,60 @@ export default function DokumenPresensiPage() {
                  </div>
               </div>
 
-               {/* Upload & Export Actions */}
-               <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 border-t border-zinc-100 pt-6">
-                  {/* Export Monthly Excel SLA */}
-                  <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                     <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Ekspor Laporan Bulanan:</span>
-                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <select 
-                           value={exportMonth}
-                           onChange={(e) => setExportMonth(e.target.value)}
-                           className="bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-700 outline-none shadow-sm cursor-pointer w-full sm:w-44"
-                        >
-                           {/* Generate last 12 months */}
-                           {Array.from({ length: 12 }).map((_, i) => {
-                              const d = new Date()
-                              d.setMonth(d.getMonth() - i)
-                              const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-                              const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
-                              return <option key={val} value={val}>{label}</option>
-                           })}
-                        </select>
-                        <button 
-                           onClick={handleExportExcel}
-                           disabled={exportLoading}
-                           className="bg-[#003FE1] hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 w-full sm:w-auto"
-                        >
-                           {exportLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                           <span>Ekspor Excel Rekon SLA</span>
-                        </button>
-                     </div>
-                  </div>
-
-                  {/* Upload Button */}
-                  <button 
-                    onClick={openUploadModal}
-                    className="w-full md:w-auto bg-brand-red text-white px-6 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center space-x-2 shadow-lg shadow-brand-red/20 hover:bg-red-700 transition-all active:scale-95 md:ml-auto"
-                  >
-                    <Upload size={18} />
-                    <span>Unggah Dokumen SOP</span>
-                  </button>
-               </div>
-            </div>
-
-           <div className="max-w-6xl mx-auto flex flex-col items-center">
-              <h3 className="text-base md:text-xl font-bold text-center text-zinc-800 mb-8 md:mb-12 max-w-2xl leading-relaxed">
-                 Download Dokumen Presence Passanger Service dan Announcer<br className="hidden md:block"/> PT KAI Commuter
-              </h3>
-
-              {/* Document Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 w-full mb-12 md:mb-16">
-                 {docCards.map((card, idx) => (
-                   <div 
-                     key={idx}
-                     onClick={() => handleDownload(card)}
-                     className="relative aspect-[16/9] bg-[#B71C1C] rounded-[24px] overflow-hidden shadow-xl flex flex-col items-center justify-between group hover:-translate-y-2 transition-all cursor-pointer border-4 border-white/10"
-                   >
-                      {/* Batik Image Overlay */}
-                      <div className="absolute inset-x-0 inset-y-0 pointer-events-none overflow-hidden">
-                         <img 
-                           src="/images/Aksen Batik.png" 
-                           alt="Batik" 
-                           className="absolute top-0 left-0 h-full w-auto max-w-none object-contain object-left opacity-30"
-                         />
-                      </div>
-                      
-                      <div className="flex-1 w-full flex items-center justify-center p-6 md:p-8 relative z-10">
-                         <h4 className="text-white font-extrabold text-lg md:text-2xl lg:text-3xl text-center leading-tight tracking-wider uppercase drop-shadow-lg">
-                            {card.title}
-                         </h4>
-                      </div>
-
-                      <div className="w-full flex justify-end p-6 md:p-8 pt-0 relative z-10">
-                         <button 
-                           className="bg-[#FFE4C4] text-[#B71C1C] px-6 md:px-8 py-2 md:py-2.5 rounded-full font-black text-[11px] md:text-[13px] shadow-lg group-hover:bg-white group-hover:scale-105 transition-all uppercase tracking-tighter"
+                {/* Upload & Export Actions */}
+                <div className="w-full flex flex-col xl:flex-row items-center justify-between gap-4 border-t border-zinc-100 pt-6">
+                   {/* Export Monthly Excel SLA & Attendance */}
+                   <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
+                      <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Ekspor Laporan Bulanan:</span>
+                      <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                         <select 
+                            value={exportMonth}
+                            onChange={(e) => setExportMonth(e.target.value)}
+                            className="bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-700 outline-none shadow-sm cursor-pointer w-full sm:w-44"
                          >
-                            DOWNLOAD
+                            {/* Generate last 12 months */}
+                            {Array.from({ length: 12 }).map((_, i) => {
+                               const d = new Date()
+                               d.setMonth(d.getMonth() - i)
+                               const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+                               const label = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+                               return <option key={val} value={val}>{label}</option>
+                            })}
+                         </select>
+                         <button 
+                            onClick={handleExportExcel}
+                            disabled={exportLoading}
+                            className="bg-[#003FE1] hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 w-full sm:w-auto"
+                         >
+                            {exportLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            <span>Ekspor Excel Rekon SLA</span>
+                         </button>
+                         <button 
+                            onClick={handleExportAttendanceExcel}
+                            disabled={exportAttLoading}
+                            className="bg-[#16A34A] hover:bg-green-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 w-full sm:w-auto"
+                         >
+                            {exportAttLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            <span>Ekspor Excel Kehadiran</span>
                          </button>
                       </div>
                    </div>
-                 ))}
-              </div>
 
-              {/* Manage Documents Table */}
-              <div className="w-full mt-10 space-y-6">
-                 <h4 className="text-lg font-bold text-zinc-800 border-b pb-3">Daftar Dokumen SOP Terunggah</h4>
+                   {/* Upload Button */}
+                   <button 
+                     onClick={openUploadModal}
+                     className="w-full xl:w-auto bg-brand-red text-white px-6 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center space-x-2 shadow-lg shadow-brand-red/20 hover:bg-red-700 transition-all active:scale-95 xl:ml-auto"
+                   >
+                     <Upload size={18} />
+                     <span>Unggah Dokumen</span>
+                   </button>
+                </div>
+             </div>
+
+            <div className="max-w-6xl mx-auto flex flex-col items-center w-full">
+               {/* Manage Documents Table */}
+               <div className="w-full mt-4 space-y-6">
+                  <h4 className="text-lg font-bold text-zinc-800 border-b pb-3">Daftar Dokumen Terunggah</h4>
                  <div className="bg-white rounded-2xl overflow-hidden border border-zinc-200 shadow-sm">
                     <table className="w-full text-left">
                        <thead className="bg-[#B71C1C] text-white">

@@ -33,6 +33,8 @@ interface AttendanceData {
   status?: string
   nilai_awal_dinas?: number
   nilai_akhir_dinas?: number
+  clock_in?: string
+  clock_out?: string
 }
 
 interface ApprovalRequestData {
@@ -109,14 +111,14 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
 
       if (dayAttendance) {
         if (dayAttendance.is_dinas_luar || dayAttendance.status === 'Dinas Luar') {
-          dayScore = 70 // Max harian score for Dinas Luar
+          dayScore = 100 // Max harian score for Dinas Luar
         } else {
           // Calculate score based on early/late values
           const awal = Number(dayAttendance.nilai_awal_dinas || 0)
           const akhir = Number(dayAttendance.nilai_akhir_dinas || 0)
           dayScore = awal + akhir
           if (dayScore === 0 && (dayAttendance.status === 'Tepat Waktu' || dayAttendance.status === 'Hadir')) {
-            dayScore = 70 // Fallback to full score
+            dayScore = 100 // Fallback to full score
           }
         }
       } else {
@@ -134,7 +136,7 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
         })
 
         if (hasDinasLuarRequest) {
-          dayScore = 70
+          dayScore = 100
         }
       }
 
@@ -192,16 +194,110 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
 
   // Generate binary Excel file
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' })
-  
-  // Convert to octet array for file download
-  const s2ab = (s: string) => {
-    const buf = new ArrayBuffer(s.length)
-    const view = new Uint8Array(buf)
-    for (let i = 0; i < s.length; i++) {
-      view[i] = s.charCodeAt(i) & 0xFF
-    }
-    return buf
-  }
-
   return s2ab(wbout)
+}
+
+interface ExportAttendanceParams {
+  users: UserData[]
+  attendance: AttendanceData[]
+  monthStr: string // "YYYY-MM"
+}
+
+export function generateAttendanceReport({ users, attendance, monthStr }: ExportAttendanceParams) {
+  const [year, month] = monthStr.split('-').map(Number)
+  const dateObj = new Date(year, month - 1, 1)
+  const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()
+
+  // 1. Prepare Headers
+  const headers = [
+    'No',
+    'NIK',
+    'Nama Petugas',
+    'Jabatan',
+    'Stasiun',
+    'Tanggal',
+    'Jam Masuk (Tap In)',
+    'Jam Pulang (Tap Out)',
+    'Status',
+    'Nilai Awal Dinas',
+    'Nilai Akhir Dinas',
+    'SLA Harian'
+  ]
+
+  // 2. Prepare Rows
+  const rows: any[] = []
+  let globalIdx = 1
+
+  // Sort attendance by date ascending
+  const sortedAttendance = [...attendance].sort((a, b) => a.date.localeCompare(b.date))
+
+  sortedAttendance.forEach((att) => {
+    const user = users.find(u => u.id === att.user_id)
+    if (!user) return
+
+    const dateFormatted = new Date(att.date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const awal = Number(att.nilai_awal_dinas || 0)
+    const akhir = Number(att.nilai_akhir_dinas || 0)
+    const totalSla = awal + akhir
+
+    rows.push([
+      globalIdx++,
+      user.nik || '-',
+      user.full_name || '-',
+      user.position || '-',
+      user.stations?.name || user.station_name || '-',
+      dateFormatted,
+      att.clock_in ? String(att.clock_in).substring(0, 5) : '--:--',
+      att.clock_out ? String(att.clock_out).substring(0, 5) : '--:--',
+      att.status || (att.is_dinas_luar ? 'Dinas Luar' : 'Hadir'),
+      awal,
+      akhir,
+      totalSla
+    ])
+  })
+
+  // 3. Build Sheet Array Format
+  const sheetData = [
+    [`LAPORAN DETAIL KEHADIRAN PETUGAS - BULAN ${monthName}`],
+    [], // Blank row
+    headers,
+    ...rows
+  ]
+
+  // Create workbook and sheet
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.aoa_to_sheet(sheetData)
+
+  // Merge title cells
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }
+  ]
+
+  // Adjust column widths
+  const wscols = headers.map((h, i) => {
+    if (i === 2) return { wch: 25 } // Nama Petugas
+    if (i === 3) return { wch: 20 } // Jabatan
+    if (i === 4) return { wch: 18 } // Stasiun
+    if (i === 5) return { wch: 12 } // Tanggal
+    if (i === 6 || i === 7) return { wch: 22 } // Tap In / Tap Out
+    if (i >= 8) return { wch: 18 } // Status / Score
+    return { wch: 6 } // No, NIK
+  })
+  ws['!cols'] = wscols
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Laporan Kehadiran')
+
+  // Generate binary Excel file
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' })
+  return s2ab(wbout)
+}
+
+// Convert to octet array for file download
+function s2ab(s: string) {
+  const buf = new ArrayBuffer(s.length)
+  const view = new Uint8Array(buf)
+  for (let i = 0; i < s.length; i++) {
+    view[i] = s.charCodeAt(i) & 0xFF
+  }
+  return buf
 }
