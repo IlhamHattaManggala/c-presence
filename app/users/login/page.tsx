@@ -73,12 +73,12 @@ export default function UserLoginPage() {
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left / Top Section (Red Area) */}
       <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 min-h-[40vh] lg:min-h-screen">
-        <div className="w-full max-w-[500px] aspect-[1.5/1] relative">
+        <div className="w-full max-w-[750px] aspect-[1.2/1] relative">
           <Image 
-            src="/images/Logo Login.png" 
+            src="/images/login-register1.webp" 
             alt="Illustration" 
             fill
-            sizes="(max-width: 768px) 100vw, 500px"
+            // sizes="(max-width: 768px) 100vw, 750px"
             className="object-contain"
             priority
           />

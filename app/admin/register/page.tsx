@@ -71,13 +71,13 @@ export default function AdminRegisterPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left Area (Desktop Style) */}
-      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-end justify-center overflow-hidden min-h-[40vh]">
-        <div className="w-[80%] h-[90%] relative">
+      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 overflow-hidden min-h-[40vh] lg:min-h-screen">
+        <div className="w-full max-w-[750px] aspect-[1.3/1] relative">
           <Image 
-            src="/images/Logo register.png" 
+            src="/images/login-register1.webp" 
             alt="Admin Register Illustration" 
             fill
-            className="object-contain object-bottom"
+            className="object-contain"
             priority
           />
         </div>

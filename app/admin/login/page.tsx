@@ -58,10 +58,10 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left Area (Illustration) */}
-      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 min-h-[40vh]">
-        <div className="w-full max-w-[500px] aspect-[1.5/1] relative">
+      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 min-h-[40vh] lg:min-h-screen">
+        <div className="w-full max-w-[750px] aspect-[1.4/1] relative">
           <Image 
-            src="/images/Logo Login.png" 
+            src="/images/login-register1.webp" 
             alt="Admin Login Illustration" 
             fill
             className="object-contain"

@@ -93,14 +93,14 @@ export default function UserRegisterPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
       {/* Left / Top Section (Red Area) */}
-      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center lg:items-end p-8 lg:p-12 overflow-hidden min-h-[40vh] lg:min-h-screen">
-        <div className="w-full max-w-[500px] aspect-square relative translate-y-8 lg:translate-y-20">
+      <div className="bg-[#D32F2F] w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 overflow-hidden min-h-[40vh] lg:min-h-screen">
+        <div className="w-full max-w-[750px] aspect-[1.3/1] relative">
           <Image 
-            src="/images/Logo register.png" 
+            src="/images/login-register1.webp" 
             alt="Register Illustration" 
             fill
-            sizes="(max-width: 768px) 100vw, 500px"
-            className="object-contain lg:object-bottom"
+            sizes="(max-width: 768px) 100vw, 750px"
+            className="object-contain"
             priority
           />
         </div>
