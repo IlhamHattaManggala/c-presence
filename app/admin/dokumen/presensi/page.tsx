@@ -368,7 +368,7 @@ export default function DokumenPresensiPage() {
                             className="bg-[#16A34A] hover:bg-green-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 w-full sm:w-auto"
                          >
                             {exportAttLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                            <span>Ekspor Excel Kehadiran</span>
+                            <span>Download Jam Dinasan Tap In Tap Out</span>
                          </button>
                       </div>
                    </div>

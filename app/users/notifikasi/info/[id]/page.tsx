@@ -42,7 +42,7 @@ export default function InfoDetailPage() {
           >
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-sm sm:text-base font-bold text-white">Detail Informasi Karyawan</h1>
+          <h1 className="text-sm sm:text-base font-bold text-white">Detail Informasi</h1>
         </div>
       </div>
 

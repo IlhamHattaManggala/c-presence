@@ -13,7 +13,6 @@ export default function PendaftaranPegawaiPage() {
   const router = useRouter()
   const supabase = createClient()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isSopModalOpen, setIsSopModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'DATA' | 'RIWAYAT'>('DATA')
   const [employees, setEmployees] = useState<any[]>([])
   const [stations, setStations] = useState<any[]>([])
@@ -37,139 +36,9 @@ export default function PendaftaranPegawaiPage() {
   const [shifts, setShifts] = useState<any[]>([])
   const [confirmCancel, setConfirmCancel] = useState(false)
 
-  // SOP State variables
-  const [sops, setSops] = useState<any[]>([])
-  const [selectedSopId, setSelectedSopId] = useState<string>('new')
-  const [sopTitle, setSopTitle] = useState('')
-  const [selectedSopFile, setSelectedSopFile] = useState<File | null>(null)
-  const [sopLoading, setSopLoading] = useState(false)
-  const sopFileInputRef = React.useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (isSopModalOpen) {
-      fetchSops()
-    }
-  }, [isSopModalOpen])
 
-  const fetchSops = async () => {
-    setSopLoading(true)
-    const { data, error } = await supabase
-      .from('sop_documents')
-      .select('*')
-      .eq('category', 'SOP')
-      .order('created_at', { ascending: false })
-    if (!error && data && data.length > 0) {
-      setSops(data)
-      setSelectedSopId(data[0].id)
-      setSopTitle(data[0].title || '')
-    } else {
-      setSops([])
-      setSelectedSopId('new')
-      setSopTitle('')
-    }
-    setSopLoading(false)
-  }
 
-  const handleSopSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!sopTitle.trim()) {
-      setModal({ isOpen: true, status: 'error', message: 'Harap masukkan nama dokumen.' })
-      return
-    }
-
-    if (selectedSopId === 'new' && !selectedSopFile) {
-      setModal({ isOpen: true, status: 'error', message: 'Harap pilih file dokumen terlebih dahulu.' })
-      return
-    }
-
-    setSopLoading(true)
-    setModal({ isOpen: true, status: 'loading', message: 'Menyimpan dokumen SOP...' })
-    try {
-      let fileUrl = ''
-      
-      if (selectedSopId !== 'new') {
-        const activeSop = sops.find(s => s.id === selectedSopId || String(s.id) === selectedSopId)
-        fileUrl = activeSop?.file_url || ''
-      }
-
-      if (selectedSopFile) {
-        const fileExt = selectedSopFile.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
-        const filePath = `SOP/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('sop_documents')
-          .upload(filePath, selectedSopFile)
-
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('sop_documents')
-          .getPublicUrl(filePath)
-          
-        fileUrl = publicUrl
-      }
-
-      if (selectedSopId === 'new') {
-        const { error: dbError } = await supabase
-          .from('sop_documents')
-          .insert({
-             title: sopTitle,
-             category: 'SOP',
-             file_url: fileUrl
-          })
-        if (dbError) throw dbError
-        setModal({ isOpen: true, status: 'success', message: 'Dokumen SOP berhasil ditambahkan!' })
-      } else {
-        const { error: dbError } = await supabase
-          .from('sop_documents')
-          .update({
-             title: sopTitle,
-             file_url: fileUrl
-          })
-          .eq('id', selectedSopId)
-        if (dbError) throw dbError
-        setModal({ isOpen: true, status: 'success', message: 'Dokumen SOP berhasil diperbarui!' })
-      }
-
-      setIsSopModalOpen(false)
-      setSelectedSopFile(null)
-      setSelectedSopId('new')
-      setSopTitle('')
-    } catch (err: any) {
-      console.error('Error saving SOP:', err)
-      setModal({ isOpen: true, status: 'error', message: 'Gagal memproses SOP: ' + err.message })
-    } finally {
-      setSopLoading(false)
-    }
-  }
-
-  const handleSopDelete = async () => {
-    if (selectedSopId === 'new') return
-    if (!window.confirm('Apakah Anda yakin ingin menghapus dokumen SOP ini?')) return
-
-    setSopLoading(true)
-    setModal({ isOpen: true, status: 'loading', message: 'Menghapus dokumen SOP...' })
-    try {
-      const { error } = await supabase
-        .from('sop_documents')
-        .delete()
-        .eq('id', selectedSopId)
-
-      if (error) throw error
-
-      setModal({ isOpen: true, status: 'success', message: 'Dokumen SOP berhasil dihapus!' })
-      setIsSopModalOpen(false)
-      setSelectedSopFile(null)
-      setSelectedSopId('new')
-      setSopTitle('')
-    } catch (err: any) {
-      console.error('Error deleting SOP:', err)
-      setModal({ isOpen: true, status: 'error', message: 'Gagal menghapus SOP: ' + err.message })
-    } finally {
-      setSopLoading(false)
-    }
-  }
 
   useEffect(() => {
     fetchEmployees()
@@ -650,15 +519,7 @@ export default function PendaftaranPegawaiPage() {
              </div>
           </div>
 
-          <div className="flex justify-center md:justify-end mb-8 md:mb-10">
-             <button 
-               onClick={() => setIsSopModalOpen(true)}
-               className="flex items-center space-x-2 border-2 border-[#B71C1C] px-5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 transition group"
-             >
-                <Plus size={16} className="text-[#B71C1C] group-hover:scale-110 transition shrink-0" />
-                <span className="text-[11px] md:text-[13px] font-bold text-[#B71C1C]">Edit Dokumen SOP</span>
-             </button>
-          </div>
+
 
           {/* Excel Import Preview OR Upload Section */}
           {importPreview ? (
@@ -1090,132 +951,7 @@ export default function PendaftaranPegawaiPage() {
 
 
 
-      {/* Edit Dokumen SOP Modal */}
-      {isSopModalOpen && (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsSopModalOpen(false)}></div>
-          <div className="relative bg-white w-full max-w-3xl rounded-[32px] shadow-2xl p-8 animate-in fade-in zoom-in duration-300">
-             
-             {/* Modal Header */}
-             <div className="mb-4">
-                <h3 className="text-xl font-bold text-black mb-4">Edit Dokumen SOP</h3>
-                <div className="h-[1px] bg-zinc-200 w-full mb-6"></div>
-             </div>
 
-              <form onSubmit={handleSopSave} className="space-y-6">
-                 {/* Field: Nama Dokumen */}
-                 <div className="space-y-2">
-                    <label className="block text-sm font-bold text-zinc-900">Nama Dokumen</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="Masukkan nama dokumen"
-                      value={sopTitle}
-                      onChange={(e) => setSopTitle(e.target.value)}
-                      className="w-full border border-zinc-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-400 bg-white shadow-sm font-semibold text-black"
-                    />
-                    <p className="text-blue-500 text-[10px] italic">* Gunakan nama file yang jelas dan mudah dikenali</p>
-                 </div>
-
-                 {/* Field: File Saat Ini */}
-                 {selectedSopId !== 'new' && (() => {
-                    const activeSop = sops.find(s => s.id === selectedSopId || String(s.id) === selectedSopId);
-                    if (!activeSop) return null;
-                    return (
-                      <div className="space-y-2">
-                         <label className="block text-sm font-bold text-zinc-900">File Saat Ini :</label>
-                         <div className="flex items-center justify-between border border-zinc-200 rounded-xl p-3 max-w-sm bg-zinc-50/50">
-                            <div className="flex items-center space-x-3 min-w-0">
-                               <div className="w-8 h-10 bg-[#E62020] rounded flex items-center justify-center text-[8px] font-extrabold text-white shrink-0">
-                                  PDF
-                               </div>
-                               <span className="font-bold text-zinc-800 text-xs truncate max-w-[200px]" title={activeSop.title}>{activeSop.title}</span>
-                            </div>
-                            <a 
-                              href={activeSop.file_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="bg-[#CFD8EB] text-[#2255CC] px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-blue-100 transition shrink-0"
-                            >
-                               Download
-                            </a>
-                         </div>
-                      </div>
-                    );
-                 })()}
-
-                 {/* Field: Upload File Baru */}
-                 <div className="space-y-2">
-                    <label className="block text-sm font-bold text-zinc-900">
-                      {selectedSopId === 'new' ? 'Upload File Dokumen' : 'Upload File Baru (Opsional)'}
-                    </label>
-                    <input 
-                      type="file"
-                      ref={sopFileInputRef}
-                      onChange={(e) => setSelectedSopFile(e.target.files?.[0] || null)}
-                      accept=".pdf,.doc,.docx"
-                      className="hidden"
-                    />
-                    <div 
-                      onClick={() => sopFileInputRef.current?.click()}
-                      className="w-full border-2 border-zinc-200 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3 border-dashed bg-zinc-50/20 hover:bg-zinc-50 transition cursor-pointer"
-                    >
-                       <div className="text-[#003BDD]">
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                          </svg>
-                       </div>
-                       <div className="text-center">
-                          {selectedSopFile ? (
-                            <div>
-                              <p className="text-xs font-bold text-emerald-600">{selectedSopFile.name}</p>
-                              <p className="text-[9px] text-zinc-400">{(selectedSopFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-xs font-bold text-zinc-800">Pilih berkas dokumen di sini</p>
-                              <p className="text-[10px] text-zinc-400">Format: PDF, DOC, DOCX (Maks 10MB)</p>
-                            </>
-                          )}
-                       </div>
-                    </div>
-                 </div>
-
-                 {/* Modal Footer */}
-                 <div className="mt-8 flex justify-between items-center border-t border-zinc-100 pt-6">
-                    <div>
-                       {selectedSopId !== 'new' && (
-                          <button 
-                            type="button"
-                            onClick={handleSopDelete}
-                            className="bg-red-50 text-brand-red px-5 py-2.5 rounded-lg font-bold text-xs hover:bg-red-100 transition shadow-sm border border-red-200"
-                          >
-                            Hapus Dokumen
-                          </button>
-                       )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                       <button 
-                         type="button"
-                         onClick={() => setIsSopModalOpen(false)}
-                         className="px-6 py-2.5 border border-zinc-300 rounded-lg font-bold text-xs text-zinc-700 hover:bg-zinc-50 transition"
-                       >
-                         Batal
-                       </button>
-                       <button 
-                         type="submit"
-                         disabled={sopLoading}
-                         className="bg-[#003BDD] text-white px-6 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 shadow-md hover:bg-blue-800 disabled:opacity-50 transition"
-                       >
-                          <span>{selectedSopId === 'new' ? 'Tambah Dokumen' : 'Simpan Perubahan'}</span>
-                          <ChevronRight size={14} />
-                       </button>
-                    </div>
-                 </div>
-              </form>
-          </div>
-        </div>
-      )}
 
 
       {/* Edit Preview Row Modal */}

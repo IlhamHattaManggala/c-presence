@@ -108,17 +108,17 @@ function TimeManagementFormContent() {
     }
 
     let fileUrl = null
-    if (activeForm === 'dinas-luar' && selectedFile) {
+    if ((activeForm === 'dinas-luar' || activeForm === 'izin') && selectedFile) {
       const fileExt = selectedFile.name.split('.').pop()
       const fileName = `${user.id}-${Math.random()}.${fileExt}`
-      const filePath = `dinas-luar/${fileName}`
+      const filePath = `${activeForm}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from('dinas-luar-evidence')
         .upload(filePath, selectedFile)
 
       if (uploadError) {
-        setModal({ isOpen: true, status: 'error', message: 'Gagal mengunggah foto bukti: ' + uploadError.message })
+        setModal({ isOpen: true, status: 'error', message: 'Gagal mengunggah berkas bukti: ' + uploadError.message })
         setLoading(false)
         return
       }
@@ -199,39 +199,7 @@ function TimeManagementFormContent() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 mt-6">
-        {/* Radio Tabs */}
-        <div className="flex flex-col space-y-3 mb-8">
-           <label className="flex items-center space-x-3 cursor-pointer group">
-              <input 
-                type="radio" 
-                name="formType" 
-                checked={activeForm === 'ubah-jadwal'}
-                onChange={() => setActiveForm('ubah-jadwal')}
-                className="w-5 h-5 accent-brand-red cursor-pointer"
-              />
-              <span className={`text-sm font-bold ${activeForm === 'ubah-jadwal' ? 'text-black' : 'text-zinc-500'}`}>Form Ubah Jadwal</span>
-           </label>
-           <label className="flex items-center space-x-3 cursor-pointer group">
-              <input 
-                type="radio" 
-                name="formType" 
-                checked={activeForm === 'izin'}
-                onChange={() => setActiveForm('izin')}
-                className="w-5 h-5 accent-brand-red cursor-pointer"
-              />
-              <span className={`text-sm font-bold ${activeForm === 'izin' ? 'text-black' : 'text-zinc-500'}`}>Form Izin</span>
-           </label>
-           <label className="flex items-center space-x-3 cursor-pointer group">
-              <input 
-                type="radio" 
-                name="formType" 
-                checked={activeForm === 'dinas-luar'}
-                onChange={() => setActiveForm('dinas-luar')}
-                className="w-5 h-5 accent-brand-red cursor-pointer"
-              />
-              <span className={`text-sm font-bold ${activeForm === 'dinas-luar' ? 'text-black' : 'text-zinc-500'}`}>Form Dinas Luar</span>
-           </label>
-        </div>
+
 
         {/* Form Container */}
         <div className="bg-white border-[1.5px] border-brand-red rounded-[24px] p-6 shadow-sm">
@@ -273,14 +241,23 @@ function TimeManagementFormContent() {
                        <span className="bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-md uppercase tracking-wider">Semula</span>
                        <div className="mt-3 space-y-3 pl-2 border-l-2 border-orange-500/20">
                           <div className="space-y-1">
-                             <label className="text-sm font-bold text-zinc-800">Kode Dinas</label>
-                             <input 
-                               type="text" 
-                               value={formData.shift_code_awal !== undefined ? formData.shift_code_awal : (userData?.shift_code || '')} 
-                               onChange={(e) => setFormData({...formData, shift_code_awal: e.target.value})}
-                               placeholder="Masukkan Kode Dinas Semula"
-                               className="w-full h-11 border border-zinc-200 rounded-lg px-4 focus:outline-none bg-white text-zinc-900" 
-                             />
+                             <label className="text-sm font-bold text-zinc-800">Kode Dinas Semula*</label>
+                             <div className="relative">
+                                <select 
+                                  value={formData.shift_code_awal !== undefined ? formData.shift_code_awal : (userData?.shift_code || '')} 
+                                  onChange={(e) => setFormData({...formData, shift_code_awal: e.target.value})}
+                                  className="w-full h-11 border border-zinc-200 rounded-lg px-4 appearance-none focus:outline-none bg-white font-bold text-zinc-900"
+                                >
+                                   <option value="">Pilih Kode Dinas Semula</option>
+                                   <option value="DP2">DP2 (06.00 - 14.00)</option>
+                                   <option value="DP3">DP3 (14.00 - 22.00)</option>
+                                   <option value="DS1">DS1 (07.00 - 15.00)</option>
+                                   <option value="DS2">DS2 (08.00 - 16.00)</option>
+                                   <option value="DS5">DS5 (13.00 - 21.00)</option>
+                                   <option value="M">M (Malam - 22.00 - 06.00)</option>
+                                   <option value="L">L (Libur)</option>
+                                </select>
+                             </div>
                           </div>
                        </div>
                     </div>
@@ -323,6 +300,32 @@ function TimeManagementFormContent() {
                         className="w-full h-24 border border-zinc-200 rounded-lg px-4 py-2 focus:outline-none resize-none text-zinc-900" 
                      />
                   </div>
+
+                  {activeForm === 'izin' && (
+                     <div className="space-y-1 pt-2">
+                        <label className="text-sm font-bold text-zinc-800">Foto / Dokumen Bukti Pendukung (Maks 10MB)</label>
+                        <div className="relative border border-dashed border-zinc-300 rounded-lg p-4 flex flex-col items-center justify-center bg-zinc-50 hover:bg-zinc-100 transition cursor-pointer">
+                           <input 
+                              type="file" 
+                              accept="image/*,.pdf" 
+                              onChange={handleFileChange}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                           />
+                           {selectedFile ? (
+                              <div className="text-center">
+                                 <p className="text-sm font-semibold text-emerald-600">{selectedFile.name}</p>
+                                 <p className="text-[10px] text-zinc-400">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                              </div>
+                           ) : (
+                              <div className="text-center flex flex-col items-center space-y-1">
+                                 <ImageIcon className="text-zinc-400" size={28} />
+                                 <span className="text-xs font-bold text-zinc-600">Pilih Foto/Dokumen PDF</span>
+                                 <span className="text-[10px] text-zinc-400">Format: JPG, PNG, WEBP, PDF (Maks 10MB)</span>
+                              </div>
+                           )}
+                        </div>
+                     </div>
+                  )}
                 </>
               )}
 

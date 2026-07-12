@@ -30,12 +30,6 @@ export default function NotifikasiMainPage() {
       <div className="max-w-4xl mx-auto px-6 mt-6">
          <div className="flex justify-between items-center mb-6">
             <h2 className="text-sm font-bold text-zinc-800">Informasi Penting</h2>
-            <button 
-              onClick={() => router.push('/users/notifikasi/info')}
-              className="text-xs font-bold text-brand-red hover:underline"
-            >
-              Lihat Semua
-            </button>
          </div>
 
          <div className="space-y-4">
@@ -45,7 +39,7 @@ export default function NotifikasiMainPage() {
               className="bg-brand-red rounded-xl p-6 relative overflow-hidden shadow-lg cursor-pointer transform transition active:scale-[0.98] hover:-translate-y-1"
             >
               <div className="relative z-10 flex text-white font-bold text-xl uppercase w-1/2 leading-tight">
-                 Informasi Karyawan
+                 Informasi
               </div>
               {/* Decorative Pattern Background */}
               <div className="absolute top-0 right-0 w-32 h-full opacity-30">

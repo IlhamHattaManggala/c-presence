@@ -52,17 +52,18 @@ interface ExportSlaParams {
   monthStr: string // "YYYY-MM"
 }
 
-export function generateRekonSLA({ users, attendance, approvalRequests, monthStr }: ExportSlaParams) {
-  const [year, month] = monthStr.split('-').map(Number)
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const workdays = getWorkdaysCount(year, month)
-  const kewajibanSla = workdays * 100
-
-  // Format month name for title
-  const dateObj = new Date(year, month - 1, 1)
-  const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()
-
-  // 1. Prepare Headers
+function buildSheetData(
+  filteredUsers: UserData[],
+  attendance: AttendanceData[],
+  approvalRequests: ApprovalRequestData[],
+  monthName: string,
+  year: number,
+  month: number,
+  daysInMonth: number,
+  workdays: number,
+  kewajibanSla: number,
+  title: string
+) {
   const headers = [
     'No',
     'NIK',
@@ -83,8 +84,7 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
     'Persentase SLA'
   )
 
-  // 2. Prepare Rows
-  const rows = users.map((user, idx) => {
+  const rows = filteredUsers.map((user, idx) => {
     const rowData: Record<string, string | number> = {
       'No': idx + 1,
       'NIK': user.nik || '-',
@@ -144,12 +144,12 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
       totalSlaHarian += dayScore
     }
 
-    // SLA Manual (can be configured per user, defaulting to 0)
+    // SLA Manual
     const slaManual = Number(user.sla_manual || 0)
     const totalNilaiKehadiran = totalSlaHarian + slaManual
     const nilaiKomplain = 100 // Default compliant value
     
-    // SLA Percentage: (Total Nilai Kehadiran + Nilai Komplain) / Kewajiban SLA * 100
+    // SLA Percentage
     const persentaseSlaVal = ((totalNilaiKehadiran + nilaiKomplain) / kewajibanSla) * 100
     const persentaseSla = `${persentaseSlaVal.toFixed(2)}%`
 
@@ -162,25 +162,20 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
     return rowData
   })
 
-  // 3. Build Sheet Array Format
-  const sheetData = [
-    [`DATA REKON SLA PASSENGER SERVICE DAN ANNOUNCER BULAN ${monthName}`],
+  return [
+    [title],
     [], // Blank row
     headers,
     ...rows.map(row => headers.map(h => row[h]))
   ]
+}
 
-  // Create workbook and sheet
-  const wb = XLSX.utils.book_new()
-  const ws = XLSX.utils.aoa_to_sheet(sheetData)
-
-  // Merge title cells
+function applyStyles(ws: any, headerLength: number) {
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }
+    { s: { r: 0, c: 0 }, e: { r: 0, c: headerLength - 1 } }
   ]
 
-  // Adjust column widths
-  const wscols = headers.map((h, i) => {
+  const wscols = Array.from({ length: headerLength }).map((_, i) => {
     if (i === 2) return { wch: 25 } // Nama Petugas
     if (i === 3) return { wch: 20 } // Jabatan
     if (i === 4) return { wch: 18 } // Stasiun
@@ -189,8 +184,71 @@ export function generateRekonSLA({ users, attendance, approvalRequests, monthStr
     return { wch: 6 } // No, NIK
   })
   ws['!cols'] = wscols
+}
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Rekon SLA')
+export function generateRekonSLA({ users, attendance, approvalRequests, monthStr }: ExportSlaParams) {
+  const [year, month] = monthStr.split('-').map(Number)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const workdays = getWorkdaysCount(year, month)
+  const kewajibanSla = workdays * 100
+
+  // Format month name for title
+  const dateObj = new Date(year, month - 1, 1)
+  const monthName = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase()
+
+  // Sort users helper: Passenger Service first, then Announcer
+  const sortUsersByPosition = (list: UserData[]) => {
+    return [...list].sort((a, b) => {
+      const posA = (a.position || '').toLowerCase()
+      const posB = (b.position || '').toLowerCase()
+      
+      const isPSA = posA.includes('passenger service') || posA.includes('ps')
+      const isPSB = posB.includes('passenger service') || posB.includes('ps')
+      
+      const isAnnA = posA.includes('announcer') || posA.includes('ann')
+      const isAnnB = posB.includes('announcer') || posB.includes('ann')
+      
+      if (isPSA && !isPSB) return -1
+      if (!isPSA && isPSB) return 1
+      if (isAnnA && !isAnnB) return -1
+      if (!isAnnA && isAnnB) return 1
+      
+      return (a.full_name || '').localeCompare(b.full_name || '')
+    })
+  }
+
+  const sortedAllUsers = sortUsersByPosition(users)
+  const annUsers = sortedAllUsers.filter(u => (u.position || '').toLowerCase().includes('announcer') || (u.position || '').toLowerCase().includes('ann'))
+  const psUsers = sortedAllUsers.filter(u => (u.position || '').toLowerCase().includes('passenger service') || (u.position || '').toLowerCase().includes('ps'))
+
+  const wb = XLSX.utils.book_new()
+
+  // Sheet 1: REKON FINGER ANN
+  const annSheetData = buildSheetData(
+    annUsers, attendance, approvalRequests, monthName, year, month, daysInMonth, workdays, kewajibanSla,
+    `DATA REKON SLA ANNOUNCER BULAN ${monthName}`
+  )
+  const annWs = XLSX.utils.aoa_to_sheet(annSheetData)
+  applyStyles(annWs, annSheetData[2].length)
+  XLSX.utils.book_append_sheet(wb, annWs, 'REKON FINGER ANN')
+
+  // Sheet 2: REKON FINGER PS
+  const psSheetData = buildSheetData(
+    psUsers, attendance, approvalRequests, monthName, year, month, daysInMonth, workdays, kewajibanSla,
+    `DATA REKON SLA PASSENGER SERVICE BULAN ${monthName}`
+  )
+  const psWs = XLSX.utils.aoa_to_sheet(psSheetData)
+  applyStyles(psWs, psSheetData[2].length)
+  XLSX.utils.book_append_sheet(wb, psWs, 'REKON FINGER PS')
+
+  // Sheet 3: REKON SLA (DATA FINGER)
+  const allSheetData = buildSheetData(
+    sortedAllUsers, attendance, approvalRequests, monthName, year, month, daysInMonth, workdays, kewajibanSla,
+    `DATA REKON SLA PASSENGER SERVICE DAN ANNOUNCER BULAN ${monthName}`
+  )
+  const allWs = XLSX.utils.aoa_to_sheet(allSheetData)
+  applyStyles(allWs, allSheetData[2].length)
+  XLSX.utils.book_append_sheet(wb, allWs, 'REKON SLA (DATA FINGER)')
 
   // Generate binary Excel file
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' })
@@ -224,15 +282,42 @@ export function generateAttendanceReport({ users, attendance, monthStr }: Export
     'SLA Harian'
   ]
 
-  // 2. Prepare Rows
+  // Sort users helper: Passenger Service first, then Announcer
+  const sortUsersByPosition = (list: UserData[]) => {
+    return [...list].sort((a, b) => {
+      const posA = (a.position || '').toLowerCase()
+      const posB = (b.position || '').toLowerCase()
+      
+      const isPSA = posA.includes('passenger service') || posA.includes('ps')
+      const isPSB = posB.includes('passenger service') || posB.includes('ps')
+      
+      const isAnnA = posA.includes('announcer') || posA.includes('ann')
+      const isAnnB = posB.includes('announcer') || posB.includes('ann')
+      
+      if (isPSA && !isPSB) return -1
+      if (!isPSA && isPSB) return 1
+      if (isAnnA && !isAnnB) return -1
+      if (!isAnnA && isAnnB) return 1
+      
+      return (a.full_name || '').localeCompare(b.full_name || '')
+    })
+  }
+
+  const sortedUsers = sortUsersByPosition(users)
+
+  // 2. Prepare Rows (Sorted by User Position order, then Date)
   const rows: any[] = []
   let globalIdx = 1
 
-  // Sort attendance by date ascending
-  const sortedAttendance = [...attendance].sort((a, b) => a.date.localeCompare(b.date))
+  const sortedAttendance = [...attendance].sort((a, b) => {
+    const userIdxA = sortedUsers.findIndex(u => u.id === a.user_id)
+    const userIdxB = sortedUsers.findIndex(u => u.id === b.user_id)
+    if (userIdxA !== userIdxB) return userIdxA - userIdxB
+    return a.date.localeCompare(b.date)
+  })
 
   sortedAttendance.forEach((att) => {
-    const user = users.find(u => u.id === att.user_id)
+    const user = sortedUsers.find(u => u.id === att.user_id)
     if (!user) return
 
     const dateFormatted = new Date(att.date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })

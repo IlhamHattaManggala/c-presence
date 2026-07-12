@@ -112,6 +112,7 @@ export async function createUserAction(userData: {
   nik?: string
   role: 'user' | 'admin'
   position?: string
+  allowed_stations?: string[]
 }) {
   try {
     const supabaseAdmin = createClient(
@@ -144,7 +145,8 @@ export async function createUserAction(userData: {
         full_name: userData.full_name,
         nik: userData.nik || null,
         role: userData.role || 'user',
-        position: userData.position || null
+        position: userData.position || null,
+        allowed_stations: userData.allowed_stations || null
       }, { onConflict: 'id' })
 
       if (dbError) {
@@ -198,6 +200,7 @@ export async function updateUserAction(userId: string, userData: {
   role: 'user' | 'admin'
   position?: string
   password?: string
+  allowed_stations?: string[]
 }) {
   try {
     const supabaseAdmin = createClient(
@@ -235,7 +238,8 @@ export async function updateUserAction(userId: string, userData: {
         full_name: userData.full_name,
         nik: userData.nik || null,
         role: userData.role || 'user',
-        position: userData.position || null
+        position: userData.position || null,
+        allowed_stations: userData.allowed_stations || null
       })
       .eq('id', userId)
 

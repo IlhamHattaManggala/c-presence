@@ -17,6 +17,7 @@ export default function UserProfile() {
     email: '', password: '', dinasan_start_time: '', dinasan_end_time: ''
   })
   const [stations, setStations] = React.useState<any[]>([])
+  const [shifts, setShifts] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
   const [modal, setModal] = React.useState<{ isOpen: boolean, status: 'success' | 'error' | 'loading', message: string }>({
     isOpen: false,
@@ -77,6 +78,9 @@ export default function UserProfile() {
 
         const { data: stationsData } = await supabase.from('stations').select('*')
         if (stationsData) setStations(stationsData)
+
+        const { data: shiftsData } = await supabase.from('shifts').select('*').order('code')
+        if (shiftsData) setShifts(shiftsData)
       } else {
         router.push('/users/login')
       }
@@ -446,20 +450,29 @@ export default function UserProfile() {
                 <div className="relative">
                   <select 
                     value={editForm.shift_code}
-                    onChange={(e) => setEditForm({...editForm, shift_code: e.target.value})}
+                    onChange={(e) => {
+                      const code = e.target.value
+                      const matched = shifts.find(s => s.code === code)
+                      if (matched) {
+                        setEditForm({
+                          ...editForm,
+                          shift_code: code,
+                          dinasan_start_time: matched.start_time ? matched.start_time.substring(0, 5) : '',
+                          dinasan_end_time: matched.end_time ? matched.end_time.substring(0, 5) : ''
+                        })
+                      } else {
+                        setEditForm({
+                          ...editForm,
+                          shift_code: code
+                        })
+                      }
+                    }}
                     className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all appearance-none"
                   >
                     <option value="">Pilih Kode Dinas</option>
-                    <option value="DP2">DP2</option>
-                    <option value="DP3">DP3</option>
-                    <option value="DS1">DS1</option>
-                    <option value="DS2">DS2</option>
-                    <option value="DS5">DS5</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="CS">CS</option>
-                    <option value="P">P</option>
-                    <option value="J">J</option>
+                    {shifts.map(s => (
+                      <option key={s.code} value={s.code}>{s.code} - {s.description || ''}</option>
+                    ))}
                   </select>
                 </div>
               </div>

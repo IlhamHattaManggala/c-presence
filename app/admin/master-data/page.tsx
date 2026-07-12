@@ -1,14 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Database, Plus, Trash2, Edit2, MapPin, Clock, Search } from 'lucide-react'
+import { Database, Plus, Trash2, Edit2, MapPin, Clock, Search, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { Map, Marker } from 'pigeon-maps'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { deleteUserAction, createUserAction, updateUserAction } from '@/app/actions/user-actions'
 
-type TabType = 'STASIUN' | 'SHIFT' | 'USER'
+type TabType = 'STASIUN' | 'SHIFT' | 'USER' | 'SOP'
 
 export default function MasterDataPage() {
   const supabase = createClient()
@@ -19,6 +19,9 @@ export default function MasterDataPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState<any>(null)
   const [formData, setFormData] = useState<any>({})
+  const [sopFile, setSopFile] = useState<File | null>(null)
+  const [allStations, setAllStations] = useState<any[]>([])
+  
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
   })
@@ -54,9 +57,30 @@ export default function MasterDataPage() {
 
   const fetchData = async () => {
     setLoading(true)
-    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
-    const orderCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'full_name'
-    const { data: result, error } = await supabase.from(table).select('*').order(orderCol, { ascending: true })
+    let table = 'stations'
+    let orderCol = 'id'
+    let ascending = true
+
+    if (activeTab === 'STASIUN') {
+      table = 'stations'
+      orderCol = 'id'
+    } else if (activeTab === 'SHIFT') {
+      table = 'shifts'
+      orderCol = 'code'
+    } else if (activeTab === 'USER') {
+      table = 'users'
+      orderCol = 'full_name'
+    } else if (activeTab === 'SOP') {
+      table = 'sop_documents'
+      orderCol = 'created_at'
+      ascending = false
+    }
+
+    const query = supabase.from(table).select('*')
+    if (activeTab === 'SOP') {
+      query.eq('category', 'SOP')
+    }
+    const { data: result, error } = await query.order(orderCol, { ascending })
     
     if (error) {
        console.error('Fetch error:', error.message || error)
@@ -66,6 +90,12 @@ export default function MasterDataPage() {
     } else {
        setData(result || [])
     }
+
+    if (activeTab === 'USER') {
+       const { data: stData } = await supabase.from('stations').select('id, name').order('name')
+       if (stData) setAllStations(stData)
+    }
+
     setLoading(false)
   }
 
@@ -78,7 +108,7 @@ export default function MasterDataPage() {
     const idToDel = confirmDelete.id
     setConfirmDelete({ isOpen: false, id: null })
 
-    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
+    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : activeTab === 'USER' ? 'users' : 'sop_documents'
     const pkCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'id'
     
     let errorMsg = ''
@@ -103,7 +133,7 @@ export default function MasterDataPage() {
     e.preventDefault()
     setModal({ isOpen: true, status: 'loading', message: 'Menyimpan...' })
     
-    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : 'users'
+    const table = activeTab === 'STASIUN' ? 'stations' : activeTab === 'SHIFT' ? 'shifts' : activeTab === 'USER' ? 'users' : 'sop_documents'
     const pkCol = activeTab === 'STASIUN' ? 'id' : activeTab === 'SHIFT' ? 'code' : 'id'
     let error;
 
@@ -113,7 +143,55 @@ export default function MasterDataPage() {
        delete payload.password
     }
 
-    if (editingId) {
+    if (activeTab === 'STASIUN') {
+      payload.radius_meters = payload.radius_meters !== '' && payload.radius_meters !== undefined ? parseInt(payload.radius_meters) : 600;
+    }
+
+    if (activeTab === 'SOP') {
+      if (!formData.title?.trim()) {
+        setModal({ isOpen: true, status: 'error', message: 'Harap masukkan nama dokumen.' })
+        return
+      }
+      if (!editingId && !sopFile) {
+        setModal({ isOpen: true, status: 'error', message: 'Harap pilih file dokumen terlebih dahulu.' })
+        return
+      }
+
+      let fileUrl = formData.file_url || ''
+      if (sopFile) {
+        const fileExt = sopFile.name.split('.').pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+        const filePath = `SOP/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('sop_documents')
+          .upload(filePath, sopFile)
+
+        if (uploadError) {
+          setModal({ isOpen: true, status: 'error', message: 'Gagal mengunggah file: ' + uploadError.message })
+          return
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('sop_documents')
+          .getPublicUrl(filePath)
+          
+        fileUrl = publicUrl
+      }
+
+      if (editingId) {
+        const { error: dbError } = await supabase
+          .from('sop_documents')
+          .update({ title: formData.title, file_url: fileUrl })
+          .eq('id', editingId)
+        error = dbError
+      } else {
+        const { error: dbError } = await supabase
+          .from('sop_documents')
+          .insert({ title: formData.title, category: 'SOP', file_url: fileUrl })
+        error = dbError
+      }
+    } else if (editingId) {
       if (activeTab === 'USER') {
         const actionResult = await updateUserAction(editingId, {
           email: formData.email,
@@ -121,7 +199,8 @@ export default function MasterDataPage() {
           nik: formData.nik,
           role: formData.role || 'user',
           position: formData.position,
-          password: formData.password
+          password: formData.password,
+          allowed_stations: formData.allowed_stations || []
         })
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal memperbarui Pengguna: ' + actionResult.error })
@@ -139,7 +218,8 @@ export default function MasterDataPage() {
           full_name: formData.full_name,
           nik: formData.nik,
           role: formData.role || 'user',
-          position: formData.position
+          position: formData.position,
+          allowed_stations: formData.allowed_stations || []
         })
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Pengguna: ' + actionResult.error })
@@ -166,8 +246,11 @@ export default function MasterDataPage() {
        setFormData({ name: '', latitude: -6.4025, longitude: 106.8197, radius_meters: 600 })
     } else if (activeTab === 'SHIFT') {
        setFormData({ code: '', description: '', start_time: '', end_time: '' })
-    } else {
-       setFormData({ nik: '', full_name: '', email: '', role: 'user', position: '', password: 'password123' })
+    } else if (activeTab === 'USER') {
+       setFormData({ nik: '', full_name: '', email: '', role: 'user', position: '', password: 'password123', allowed_stations: [] })
+    } else if (activeTab === 'SOP') {
+       setFormData({ title: '' })
+       setSopFile(null)
     }
     setSearchQuery('')
     setIsFormOpen(true)
@@ -177,6 +260,7 @@ export default function MasterDataPage() {
     const pkVal = activeTab === 'STASIUN' ? item.id : activeTab === 'SHIFT' ? item.code : item.id
     setEditingId(pkVal)
     setFormData(item)
+    setSopFile(null)
     setSearchQuery('')
     setIsFormOpen(true)
   }
@@ -204,73 +288,182 @@ export default function MasterDataPage() {
        )
     }
 
-    return (
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in duration-500">
-          {data.map((item) => (
-             <div key={item.id || item.code} className="bg-white border border-zinc-100 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-zinc-50 to-transparent -z-10 rounded-bl-full opacity-50"></div>
-                
-                <div className="flex items-start justify-between mb-4">
-                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activeTab === 'STASIUN' ? 'bg-blue-50 text-blue-600' : activeTab === 'SHIFT' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
-                      {activeTab === 'STASIUN' ? <MapPin size={24} /> : activeTab === 'SHIFT' ? <Clock size={24} /> : <Database size={24} />}
-                   </div>
-                   <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEditForm(item)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-brand-red/10 hover:text-brand-red transition-colors">
-                         <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(activeTab === 'STASIUN' ? item.id : activeTab === 'SHIFT' ? item.code : item.id)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
-                         <Trash2 size={16} />
-                      </button>
-                   </div>
-                </div>
-                
-                {activeTab === 'STASIUN' ? (
-                   <div>
-                      <h3 className="text-xl font-black text-zinc-800 mb-2">{item.name}</h3>
-                      <div className="flex items-center space-x-2 bg-zinc-50 border border-zinc-100 rounded-lg py-1.5 px-3 w-fit">
-                         <MapPin size={12} className="text-zinc-400" />
-                         <span className="text-[10px] font-bold text-zinc-500">
-                           {item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'Koordinat Belum Diatur'}
-                         </span>
-                      </div>
-                   </div>
-                ) : activeTab === 'SHIFT' ? (
-                    <div>
-                       <div className="flex items-center space-x-2 mb-2">
-                         <span className="px-3 py-1 bg-zinc-800 text-white rounded-lg text-xs font-black">{item.code}</span>
-                         <h3 className="text-lg font-black text-zinc-800">{item.description || '-'}</h3>
-                       </div>
-                       <p className="text-sm font-bold text-zinc-500 flex items-center space-x-2 pt-2 border-t border-zinc-100 mt-4">
-                          <Clock size={14} />
-                          <span>{item.start_time ? String(item.start_time).substring(0,5) : '00:00'} - {item.end_time ? String(item.end_time).substring(0,5) : '00:00'}</span>
-                       </p>
-                    </div>
-                 ) : (
-                    <div>
-                       <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-xl font-black text-zinc-800 truncate pr-2">{item.full_name}</h3>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${item.role === 'admin' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                             {item.role}
-                          </span>
-                       </div>
-                       <div className="space-y-1.5 mt-4 pt-4 border-t border-zinc-50">
-                          <p className="text-xs font-bold text-zinc-500 flex items-center space-x-2">
-                             <Database size={12} className="text-zinc-300" />
-                             <span className="text-zinc-400">NIK:</span>
-                             <span className="text-zinc-800">{item.nik || '-'}</span>
-                          </p>
-                          <p className="text-xs font-bold text-zinc-500 flex items-center space-x-2">
-                             <Search size={12} className="text-zinc-300" />
-                             <span className="text-zinc-400">Email:</span>
-                             <span className="text-zinc-800 truncate">{item.email}</span>
-                          </p>
-                       </div>
-                    </div>
-                 )}
-             </div>
-          ))}
-       </div>
-    )
+    if (activeTab === 'STASIUN') {
+      return (
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 animate-in fade-in duration-500">
+            {data.map((item, idx) => (
+               <div key={item.id || idx} className="bg-white border border-zinc-100 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-zinc-50 to-transparent -z-10 rounded-bl-full opacity-50"></div>
+                  
+                  <div className="flex items-start justify-between mb-4">
+                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-blue-50 text-blue-600">
+                        <MapPin size={24} />
+                     </div>
+                     <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditForm(item)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-brand-red/10 hover:text-brand-red transition-colors">
+                           <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+                           <Trash2 size={16} />
+                        </button>
+                     </div>
+                  </div>
+                  
+                  <div>
+                     <h3 className="text-xl font-black text-zinc-800 mb-2">{item.name}</h3>
+                     <div className="flex items-center space-x-2 bg-zinc-50 border border-zinc-100 rounded-lg py-1.5 px-3 w-fit mb-2">
+                        <MapPin size={12} className="text-zinc-400" />
+                        <span className="text-[10px] font-bold text-zinc-500">
+                          {item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'Koordinat Belum Diatur'}
+                        </span>
+                     </div>
+                     <p className="text-xs font-bold text-zinc-400">Radius: <span className="text-zinc-800 font-extrabold">{item.radius_meters || 600} meter</span></p>
+                  </div>
+               </div>
+            ))}
+         </div>
+      )
+    }
+
+    if (activeTab === 'SHIFT') {
+      return (
+         <div className="bg-white border border-zinc-100 rounded-3xl overflow-hidden shadow-sm animate-in fade-in duration-500">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-brand-red text-white">
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-16">No</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Kode Shift</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Deskripsi</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center">Jam Masuk</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center">Jam Pulang</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-28">Aksi</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-zinc-100 font-medium text-zinc-600 text-[13px]">
+                  {data.map((item, idx) => (
+                     <tr key={item.code || idx} className="hover:bg-zinc-50 transition-colors">
+                        <td className="px-6 py-4 text-center text-zinc-800 font-bold">{idx + 1}</td>
+                        <td className="px-6 py-4 font-black text-zinc-800"><span className="px-3 py-1 bg-zinc-800 text-white rounded-lg text-xs font-mono">{item.code}</span></td>
+                        <td className="px-6 py-4 text-zinc-800 font-black">{item.description || '-'}</td>
+                        <td className="px-6 py-4 text-center font-bold text-zinc-700">{item.start_time ? String(item.start_time).substring(0, 5) : '00:00'}</td>
+                        <td className="px-6 py-4 text-center font-bold text-zinc-700">{item.end_time ? String(item.end_time).substring(0, 5) : '00:00'}</td>
+                        <td className="px-6 py-4 text-center flex justify-center space-x-2">
+                           <button onClick={() => openEditForm(item)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-brand-red/10 hover:text-brand-red transition-colors">
+                              <Edit2 size={14} />
+                           </button>
+                           <button onClick={() => handleDelete(item.code)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+                              <Trash2 size={14} />
+                           </button>
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      )
+    }
+
+    if (activeTab === 'USER') {
+      const admins = data.filter(u => u.role === 'admin' || u.role === 'super_admin')
+      const users = data.filter(u => u.role === 'user')
+
+      const renderUserTable = (list: any[], title: string) => (
+         <div className="space-y-4">
+            <h3 className="text-lg font-black text-zinc-800 tracking-tight">{title}</h3>
+            <div className="bg-white border border-zinc-100 rounded-3xl overflow-hidden shadow-sm">
+               <table className="w-full text-left border-collapse">
+                  <thead>
+                     <tr className="bg-brand-red text-white">
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-16">No</th>
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider w-32">ID</th>
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Nama Akun</th>
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Email Login</th>
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-36">Role Akses</th>
+                        <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-28">Aksi</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 font-medium text-zinc-600 text-[13px]">
+                     {list.length === 0 ? (
+                        <tr>
+                           <td colSpan={6} className="px-6 py-12 text-center text-zinc-400 font-bold">Tidak ada data pengguna</td>
+                        </tr>
+                     ) : (
+                        list.map((item, idx) => (
+                           <tr key={item.id || idx} className="hover:bg-zinc-50 transition-colors">
+                              <td className="px-6 py-4 text-center text-zinc-800 font-bold">{idx + 1}</td>
+                              <td className="px-6 py-4 font-mono font-bold text-zinc-700">{item.nik || '-'}</td>
+                              <td className="px-6 py-4 text-zinc-800 font-black">{item.full_name}</td>
+                              <td className="px-6 py-4 text-zinc-700">{item.email}</td>
+                              <td className="px-6 py-4 text-center">
+                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                                    item.role === 'admin' || item.role === 'super_admin' ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-green-600 bg-green-50 border-green-100'
+                                 }`}>
+                                    {item.role === 'admin' || item.role === 'super_admin' ? 'Admin' : 'User'}
+                                 </span>
+                              </td>
+                              <td className="px-6 py-4 text-center flex justify-center space-x-2">
+                                 <button onClick={() => openEditForm(item)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-brand-red/10 hover:text-brand-red transition-colors">
+                                    <Edit2 size={14} />
+                                 </button>
+                                 <button onClick={() => handleDelete(item.id)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+                                    <Trash2 size={14} />
+                                 </button>
+                              </td>
+                           </tr>
+                        ))
+                     )}
+                  </tbody>
+               </table>
+            </div>
+         </div>
+      )
+
+      return (
+         <div className="space-y-10 animate-in fade-in duration-500">
+            {renderUserTable(admins, "Data Pengguna Admin")}
+            {renderUserTable(users, "Data Pengguna User")}
+         </div>
+      )
+    }
+
+    if (activeTab === 'SOP') {
+      return (
+         <div className="bg-white border border-zinc-100 rounded-3xl overflow-hidden shadow-sm animate-in fade-in duration-500">
+            <table className="w-full text-left border-collapse">
+               <thead>
+                  <tr className="bg-brand-red text-white">
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-16">No</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">Nama Dokumen</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider">File SOP</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-48">Tanggal Upload</th>
+                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-center w-28">Aksi</th>
+                  </tr>
+               </thead>
+               <tbody className="divide-y divide-zinc-100 font-medium text-zinc-600 text-[13px]">
+                  {data.map((item, idx) => (
+                     <tr key={item.id || idx} className="hover:bg-zinc-50 transition-colors">
+                        <td className="px-6 py-4 text-center text-zinc-800 font-bold">{idx + 1}</td>
+                        <td className="px-6 py-4 text-zinc-800 font-black">{item.title}</td>
+                        <td className="px-6 py-4">
+                           <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold">
+                              Unduh / Lihat PDF
+                           </a>
+                        </td>
+                        <td className="px-6 py-4 text-center text-zinc-500 font-bold">
+                           {item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-center flex justify-center space-x-2">
+                           <button onClick={() => handleDelete(item.id)} className="p-2 bg-zinc-50 text-zinc-500 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+                              <Trash2 size={14} />
+                           </button>
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
+      )
+    }
   }
 
   return (
@@ -284,7 +477,7 @@ export default function MasterDataPage() {
           <div>
             <h2 className="text-lg md:text-2xl font-bold text-white tracking-wide leading-tight">Master Data</h2>
             <p className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest leading-none mt-0.5 mb-1">PT KAI Commuter</p>
-            <p className="text-white/80 text-[10px] md:text-xs lg:text-sm font-medium leading-tight">Kelola Data Stasiun & Master Shift</p>
+            <p className="text-white/80 text-[10px] md:text-xs lg:text-sm font-medium leading-tight">Kelola Data Stasiun, Shift & Dokumen SOP</p>
           </div>
         </div>
         <button 
@@ -302,24 +495,30 @@ export default function MasterDataPage() {
           
           {/* Sub Navigation Tabs */}
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-10 space-y-4 md:space-y-0">
-             <div className="flex bg-white shadow-sm border border-zinc-100 p-1 rounded-xl w-full md:w-auto">
+             <div className="flex bg-white shadow-sm border border-zinc-100 p-1 rounded-xl w-full md:w-auto overflow-x-auto scrollbar-hide">
                 <button 
                   onClick={() => setActiveTab('STASIUN')}
-                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'STASIUN' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex-shrink-0 px-4 md:px-8 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'STASIUN' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
                   Data Stasiun
                 </button>
                 <button 
                   onClick={() => setActiveTab('SHIFT')}
-                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'SHIFT' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex-shrink-0 px-4 md:px-8 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'SHIFT' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
                   Data Shift
                 </button>
                 <button 
                   onClick={() => setActiveTab('USER')}
-                  className={`flex-1 md:flex-none px-4 md:px-10 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'USER' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  className={`flex-shrink-0 px-4 md:px-8 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'USER' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
                 >
                   Data Pengguna
+                </button>
+                <button 
+                  onClick={() => setActiveTab('SOP')}
+                  className={`flex-shrink-0 px-4 md:px-8 py-2.5 md:py-3 text-[10px] md:text-sm font-black rounded-lg md:rounded-xl transition-all ${activeTab === 'SOP' ? 'bg-[#B71C1C] text-white shadow-md' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  Dokumen SOP
                 </button>
              </div>
 
@@ -345,10 +544,10 @@ export default function MasterDataPage() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsFormOpen(false)}></div>
           <div className={`bg-white rounded-[32px] p-8 w-full ${activeTab === 'USER' ? 'max-w-2xl' : 'max-w-md'} relative z-10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]`}>
              <h3 className="text-2xl font-black text-zinc-800 mb-6">
-               {editingId ? 'Edit' : 'Tambah'} Data {activeTab === 'STASIUN' ? 'Stasiun' : activeTab === 'SHIFT' ? 'Kode Dinas' : 'Pengguna'}
+                {editingId ? 'Edit' : 'Tambah'} Data {activeTab === 'STASIUN' ? 'Stasiun' : activeTab === 'SHIFT' ? 'Kode Dinas' : activeTab === 'USER' ? 'Pengguna' : 'Dokumen SOP'}
              </h3>
              <form onSubmit={handleSave} className="space-y-5">
-                {activeTab === 'STASIUN' ? (
+                {activeTab === 'STASIUN' && (
                    <>
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-zinc-700">Nama Stasiun</label>
@@ -366,8 +565,8 @@ export default function MasterDataPage() {
                         <input 
                           required
                           type="number" 
-                          value={formData.radius_meters !== undefined && formData.radius_meters !== null ? formData.radius_meters : 600}
-                          onChange={e => setFormData({...formData, radius_meters: parseInt(e.target.value) || 600})}
+                          value={formData.radius_meters ?? ''}
+                          onChange={e => setFormData({...formData, radius_meters: e.target.value === '' ? '' : parseInt(e.target.value)})}
                           className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
                           placeholder="Contoh: 600"
                         />
@@ -433,7 +632,9 @@ export default function MasterDataPage() {
                         </div>
                      </div>
                    </>
-                ) : activeTab === 'SHIFT' ? (
+                )}
+                
+                {activeTab === 'SHIFT' && (
                    <>
                      <div className="space-y-2">
                        <label className="text-sm font-bold text-zinc-700">Kode Shift</label>
@@ -458,29 +659,31 @@ export default function MasterDataPage() {
                      </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-sm font-bold text-zinc-700">Jam Masuk</label>
-                          <input 
-                            type="time" 
-                            value={formData.start_time || ''}
-                            onChange={e => setFormData({...formData, start_time: e.target.value})}
-                            className="w-full h-14 bg-zinc-50 border border-zinc-200 rounded-2xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
-                          />
+                           <label className="text-sm font-bold text-zinc-700">Jam Masuk</label>
+                           <input 
+                             type="time" 
+                             value={formData.start_time || ''}
+                             onChange={e => setFormData({...formData, start_time: e.target.value})}
+                             className="w-full h-14 bg-zinc-50 border border-zinc-200 rounded-2xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
+                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-bold text-zinc-700">Jam Pulang</label>
-                          <input 
-                            type="time" 
-                            value={formData.end_time || ''}
-                            onChange={e => setFormData({...formData, end_time: e.target.value})}
-                            className="w-full h-14 bg-zinc-50 border border-zinc-200 rounded-2xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
-                          />
+                           <label className="text-sm font-bold text-zinc-700">Jam Pulang</label>
+                           <input 
+                             type="time" 
+                             value={formData.end_time || ''}
+                             onChange={e => setFormData({...formData, end_time: e.target.value})}
+                             className="w-full h-14 bg-zinc-50 border border-zinc-200 rounded-2xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
+                           />
                         </div>
                      </div>
                    </>
-                ) : (
+                )}
+                
+                {activeTab === 'USER' && (
                    <div className="grid grid-cols-2 gap-6">
                      <div className="space-y-2">
-                       <label className="text-sm font-bold text-zinc-700">NIK (Nomor Induk Pegawai)</label>
+                       <label className="text-sm font-bold text-zinc-700">NIK / ID</label>
                        <input 
                          type="text" 
                          value={formData.nik || ''}
@@ -501,7 +704,7 @@ export default function MasterDataPage() {
                        </select>
                      </div>
                      
-                     <div className="space-y-2">
+                     <div className="space-y-2 col-span-2">
                        <label className="text-sm font-bold text-zinc-700">Nama Lengkap</label>
                        <input 
                          required
@@ -512,7 +715,7 @@ export default function MasterDataPage() {
                          placeholder="Masukkan Nama Lengkap"
                        />
                      </div>
-                     <div className="space-y-2">
+                     <div className="space-y-2 col-span-2">
                        <label className="text-sm font-bold text-zinc-700">Email Login</label>
                        <input 
                          required
@@ -544,9 +747,61 @@ export default function MasterDataPage() {
                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
                          placeholder="Set Password Login"
                        />
-                       <p className="text-[10px] text-zinc-400">Gunakan untuk pendaftaran akun baru.</p>
+                     </div>
+                     
+                     <div className="space-y-2 col-span-2">
+                        <label className="text-sm font-bold text-zinc-700 block">Stasiun yang Diizinkan (Base Presensi)</label>
+                        <div className="grid grid-cols-2 gap-2 mt-2 max-h-40 overflow-y-auto border border-zinc-200 rounded-xl p-3 bg-zinc-50">
+                           {allStations.map((station, idx) => {
+                              const isChecked = (formData.allowed_stations || []).includes(station.id)
+                              return (
+                                 <label key={station.id || idx} className="flex items-center space-x-2 text-xs font-bold text-zinc-700 cursor-pointer">
+                                    <input 
+                                       type="checkbox" 
+                                       checked={isChecked}
+                                       onChange={(e) => {
+                                          const current = formData.allowed_stations || []
+                                          if (e.target.checked) {
+                                             setFormData({ ...formData, allowed_stations: [...current, station.id] })
+                                          } else {
+                                             setFormData({ ...formData, allowed_stations: current.filter((id: string) => id !== station.id) })
+                                          }
+                                       }}
+                                       className="accent-brand-red w-4 h-4"
+                                    />
+                                    <span>{station.name}</span>
+                                 </label>
+                              )
+                           })}
+                        </div>
                      </div>
                    </div>
+                )}
+
+                {activeTab === 'SOP' && (
+                   <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">Nama Dokumen SOP</label>
+                        <input 
+                          required
+                          type="text" 
+                          value={formData.title || ''}
+                          onChange={e => setFormData({...formData, title: e.target.value})}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-5 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all font-medium"
+                          placeholder="Contoh: SOP Pelayanan Penumpang"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">File Dokumen (PDF)</label>
+                        <input 
+                          type="file" 
+                          accept=".pdf"
+                          required={!editingId}
+                          onChange={e => setSopFile(e.target.files?.[0] || null)}
+                          className="w-full text-zinc-600 focus:outline-none py-2"
+                        />
+                     </div>
+                   </>
                 )}
 
                 <div className="flex space-x-3 pt-4">

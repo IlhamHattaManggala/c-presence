@@ -11,6 +11,7 @@ export default function DokumenPage() {
   const supabase = createClient()
   const [sops, setSops] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     const fetchSops = async () => {
@@ -56,14 +57,32 @@ export default function DokumenPage() {
             </div>
          </div>
 
+         <div className="mb-6 px-2">
+            <h2 className="text-sm font-bold text-zinc-800 mb-3">Pencarian Dokumen SOP</h2>
+            <div className="flex space-x-2">
+               <input 
+                  type="text" 
+                  placeholder="Cari nama dokumen SOP..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-brand-red font-medium text-black shadow-sm"
+               />
+               <button 
+                  className="bg-brand-red text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-brand-red-dark transition active:scale-95 shrink-0"
+               >
+                  Cari
+               </button>
+            </div>
+         </div>
+
          <h2 className="text-sm font-bold text-zinc-800 mb-4 px-2">Informasi Dokumen SOP KCI</h2>
 
          {/* Document List */}
          <div className="space-y-3">
             {loading ? (
               <div className="text-center py-8 text-zinc-400 text-xs font-semibold">Memuat dokumen SOP...</div>
-            ) : sops.length > 0 ? (
-              sops.map((item) => (
+            ) : sops.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+              sops.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())).map((item) => (
                 <div 
                   key={item.id}
                   onClick={() => {
@@ -91,7 +110,7 @@ export default function DokumenPage() {
               ))
             ) : (
               <div className="text-center py-12 text-zinc-400 text-xs font-bold border border-zinc-200 border-dashed rounded-xl bg-zinc-50/50">
-                 Belum ada dokumen SOP yang diunggah.
+                 Belum ada dokumen SOP yang sesuai pencarian.
               </div>
             )}
          </div>

@@ -72,4 +72,13 @@ USING (true);
 -- 10. Drop phone_number column from users table
 ALTER TABLE public.users DROP COLUMN IF EXISTS phone_number;
 
+-- 11. Add allowed_stations UUID[] to users table (fitur Base Presensi)
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS allowed_stations UUID[];
+
+-- 12. Add reject_reason text to approval_requests table
+ALTER TABLE public.approval_requests ADD COLUMN IF NOT EXISTS reject_reason TEXT;
+
+-- 13. Add lampiran_izin_url text to approval_requests table
+ALTER TABLE public.approval_requests ADD COLUMN IF NOT EXISTS lampiran_izin_url TEXT;
+
 

@@ -234,16 +234,29 @@ function SuratDinasLuarContent() {
             <p>Demikian surat pernyataan ini dibuat agar dapat dipergunakan sebagaimana mestinya.</p>
           </div>
 
-          {/* Signature basah */}
+          {/* Signature basah dengan E-Sign QR Code */}
           <div className="mt-8 grid grid-cols-2 text-center text-sm font-bold text-zinc-800">
             <div className="flex flex-col items-center">
               <span>Mengetahui Pengawas,</span>
-              <div className="h-12"></div>
+              {requestData.status === 'Disetujui' ? (
+                <div className="my-2 flex flex-col items-center space-y-1">
+                   <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
+                         `PT KAI COMMUTER PRESENCE\nVerifikasi E-Sign\nPermohonan: DINAS LUAR\nStatus: DISETUJUI\nPengawas: ${requestData.approved_by_name || 'Pengawas'}\nPetugas: ${userData?.full_name || 'Petugas'}\nTanggal: ${requestData.tgl_mulai_dinas}`
+                      )}`} 
+                      alt="QR Code E-Sign" 
+                      className="w-20 h-20 object-contain border border-zinc-200 p-1"
+                   />
+                   <span className="text-[9px] text-zinc-400 font-mono tracking-tight">Verified Digital Sign</span>
+                </div>
+              ) : (
+                <div className="h-16"></div>
+              )}
               <span className="border-t border-zinc-400 w-44 pt-1 font-black">{requestData.approved_by_name || 'Pengawas'}</span>
             </div>
             <div className="flex flex-col items-center justify-end">
-              <span>Yang Bertugas,</span>
-              <div className="h-12"></div>
+              <span>Petugas,</span>
+              <div className="h-16"></div>
               <span className="border-t border-zinc-400 w-44 pt-1 font-black">{userData?.full_name}</span>
             </div>
           </div>

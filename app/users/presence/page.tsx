@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, MapPin, Clock, Camera as CameraIcon, SwitchCamera, Zap, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, Clock, Camera as CameraIcon, SwitchCamera, Zap, AlertCircle } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { Map, Marker, Overlay } from 'pigeon-maps'
 import { createClient } from '@/lib/supabase/client'
@@ -47,6 +47,7 @@ export default function PresencePage() {
   // State untuk semua stasiun dan stasiun terdekat
   const [allStations, setAllStations] = useState<any[]>([])
   const [nearestStation, setNearestStation] = useState<any | null>(null)
+  const [selectedStation, setSelectedStation] = useState<any>(null)
 
   // Geolocation states
   const [userLat, setUserLat] = useState<number | null>(null)
@@ -132,50 +133,60 @@ export default function PresencePage() {
   // Effect: cari stasiun penempatan pegawai dan cek apakah dalam radius-nya
   useEffect(() => {
     if (userLat !== null && userLng !== null && allStations.length > 0 && userData) {
-      if (userData.station_id) {
-        // Cari stasiun yang sesuai dengan penempatan pegawai
-        const assigned = allStations.find(s => s.id === userData.station_id)
-        if (assigned) {
-          const dist = getDistance(userLat, userLng, assigned.latitude, assigned.longitude)
-          setNearestStation(assigned)
-          setDistance(Math.round(dist))
-
-          // Pindah ke kamera jika dalam radius stasiun penempatan
-          if (dist <= (assigned.radius_meters || 600)) {
-            setViewMode('camera')
-          } else {
-            setViewMode('map')
-          }
-        } else {
-          // Fallback ke cari stasiun terdekat jika stasiun penempatan tidak ditemukan di master data
-          let closest: any = null
-          let closestDist = Infinity
-
-          for (const station of allStations) {
-            const dist = getDistance(userLat, userLng, station.latitude, station.longitude)
-            if (dist < closestDist) {
-              closestDist = dist
-              closest = station
+      // Determine active target station
+      let activeStation = selectedStation
+      if (!activeStation) {
+        if (userData.allowed_stations && userData.allowed_stations.length > 0) {
+          if (userData.allowed_stations.length === 1) {
+            const matched = allStations.find(s => s.id === userData.allowed_stations[0])
+            if (matched) {
+              activeStation = matched
+              setSelectedStation(matched)
             }
           }
-
-          setNearestStation(closest)
-          setDistance(Math.round(closestDist))
-
-          if (closest && closestDist <= (closest.radius_meters || 600)) {
-            setViewMode('camera')
-          } else {
-            setViewMode('map')
+        } else if (userData.station_id) {
+          const matched = allStations.find(s => s.id === userData.station_id)
+          if (matched) {
+            activeStation = matched
+            setSelectedStation(matched)
           }
         }
+      }
+
+      if (activeStation) {
+        const dist = getDistance(userLat, userLng, activeStation.latitude, activeStation.longitude)
+        setNearestStation(activeStation)
+        setDistance(Math.round(dist))
+
+        if (dist <= (activeStation.radius_meters || 600)) {
+          setViewMode('camera')
+        } else {
+          setViewMode('map')
+        }
       } else {
-        // Pegawai tidak memiliki stasiun penempatan yang diatur oleh admin
-        setNearestStation(null)
-        setDistance(null)
-        setViewMode('map')
+        // Fallback to nearest station if no selection/assignment
+        let closest: any = null
+        let closestDist = Infinity
+
+        for (const station of allStations) {
+          const dist = getDistance(userLat, userLng, station.latitude, station.longitude)
+          if (dist < closestDist) {
+            closestDist = dist
+            closest = station
+          }
+        }
+
+        setNearestStation(closest)
+        setDistance(Math.round(closestDist))
+
+        if (closest && closestDist <= (closest.radius_meters || 600)) {
+          setViewMode('camera')
+        } else {
+          setViewMode('map')
+        }
       }
     }
-  }, [userLat, userLng, allStations, userData])
+  }, [userLat, userLng, allStations, userData, selectedStation])
 
   const [flash, setFlash] = useState(false)
 
@@ -218,12 +229,6 @@ export default function PresencePage() {
       const nowMinutes = nowHour * 60 + nowMin
 
       if (todayAttendance) {
-        if (todayAttendance.clock_out) {
-          setModal({ isOpen: true, status: 'error', message: 'Anda sudah melakukan presensi pulang hari ini.' })
-          setIsSubmitting(false)
-          return
-        }
-        
         // Validasi Tap Out (Maks 1 jam setelah jam dinasan)
         const [endHour, endMin] = userData.dinasan_end_time.split(':').map(Number)
         const endMinutes = endHour * 60 + endMin
@@ -240,10 +245,10 @@ export default function PresencePage() {
         }
 
         const minutesEarly = endMinutes - nowMinutes
-        const nilaiAkhir = calculateAkhirDinas(minutesEarly)
+        const nilaiAkhir = minutesEarly > 0 ? 0 : calculateAkhirDinas(minutesEarly)
         const totalSla = (todayAttendance.nilai_awal_dinas || 0) + nilaiAkhir
 
-        // Clock Out
+        // Clock Out (Overwrites with the last clock-out if repeated)
         const { error } = await supabase
           .from('attendance')
           .update({ 
@@ -254,7 +259,12 @@ export default function PresencePage() {
           .eq('id', todayAttendance.id)
         
         if (error) throw error
-        setModal({ isOpen: true, status: 'success', message: `Presensi pulang berhasil! Nilai Akhir: ${nilaiAkhir}, SLA Harian: ${totalSla}` })
+        
+        let successMessage = `Presensi pulang berhasil! Nilai Akhir: ${nilaiAkhir}, SLA Harian: ${totalSla}`
+        if (minutesEarly > 0) {
+          successMessage = `Presensi pulang berhasil! Peringatan: Anda pulang lebih awal dari jam dinasan (${userData.dinasan_end_time.substring(0, 5)}). Nilai Akhir Pulang diatur ke 0. SLA Harian: ${totalSla}`
+        }
+        setModal({ isOpen: true, status: 'success', message: successMessage })
       } else {
         // Validasi Tap In (Maks 1 jam sebelum jam dinasan)
         const [startHour, startMin] = userData.dinasan_start_time.split(':').map(Number)
@@ -413,6 +423,52 @@ export default function PresencePage() {
   }
 
   // Jika di luar radius, tetap tampilkan Map
+  if (userData?.allowed_stations && userData.allowed_stations.length > 1 && !selectedStation && allStations.length > 0) {
+    const allowedSt = allStations.filter(s => userData.allowed_stations.includes(s.id))
+    return (
+      <div className="bg-zinc-50 min-h-screen flex flex-col justify-between pb-12 animate-in fade-in duration-500">
+        <div className="bg-[#B71C1C] pt-12 pb-6 px-6 relative z-30 shadow-sm text-center">
+           <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Pilih Base Presensi Aktif</h1>
+           <p className="text-xs text-white/80 font-bold mt-1">PT KAI COMMUTER INDONESIA</p>
+        </div>
+        
+        <div className="flex-1 p-6 flex flex-col justify-center max-w-md mx-auto w-full">
+           <h2 className="text-lg font-black text-zinc-800 text-center mb-6 leading-tight">
+              Anda memiliki beberapa lokasi stasiun yang diizinkan untuk presensi.
+           </h2>
+           <p className="text-xs font-bold text-zinc-400 text-center mb-8 leading-relaxed">
+              Pilih stasiun tempat Anda bertugas saat ini sebelum melakukan presensi:
+           </p>
+           
+           <div className="space-y-4">
+              {allowedSt.map(station => (
+                 <button 
+                    key={station.id}
+                    onClick={() => setSelectedStation(station)}
+                    className="w-full border-2 border-brand-red p-5 rounded-2xl bg-white shadow-sm flex items-center justify-between text-left hover:bg-red-50 hover:scale-[1.02] active:scale-95 transition-all group"
+                 >
+                    <div>
+                       <h4 className="font-extrabold text-zinc-800 text-base">{station.name}</h4>
+                       <p className="text-zinc-400 text-xs font-bold mt-1">Radius: {station.radius_meters || 600}m</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-red-50 group-hover:bg-[#B71C1C] flex items-center justify-center text-brand-red group-hover:text-white transition-colors">
+                       <ChevronRight size={18} />
+                    </div>
+                 </button>
+              ))}
+           </div>
+        </div>
+        
+        <div className="text-center px-6">
+           <button onClick={() => router.back()} className="text-zinc-400 text-sm font-bold hover:underline">
+              Kembali ke Beranda
+           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Jika di luar radius, tetap tampilkan Map
   return (
     <div className="bg-white min-h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -506,6 +562,14 @@ export default function PresencePage() {
                 </p>
                 <h3 className="text-base font-bold text-zinc-800 mb-1">Anda Terlalu Jauh</h3>
                 <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 600} meter dari {nearestStation.name}.</p>
+                {userData?.allowed_stations && userData.allowed_stations.length > 1 && (
+                   <button 
+                      onClick={() => setSelectedStation(null)}
+                      className="mt-3 text-xs text-[#B71C1C] font-bold underline hover:text-red-700 w-full pointer-events-auto"
+                   >
+                      Ganti Stasiun Base Presensi
+                   </button>
+                )}
               </div>
           </div>
         )}

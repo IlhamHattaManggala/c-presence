@@ -33,6 +33,18 @@ export default function AdminRegisterPage() {
     setLoading(true)
     setModal({ isOpen: true, status: 'loading', message: 'Mendaftarkan akun administrator baru...' })
 
+    // Validasi Password Kuat
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+    if (!passwordRegex.test(formData.password)) {
+      setModal({ 
+        isOpen: true, 
+        status: 'error', 
+        message: 'Registrasi Admin Gagal: Password harus minimal 8 karakter dan memiliki kombinasi huruf besar, huruf kecil, dan angka.' 
+      })
+      setLoading(false)
+      return
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -105,7 +117,7 @@ export default function AdminRegisterPage() {
               <label className="block text-lg font-medium text-black">Password</label>
               <input 
                 type="password" 
-                placeholder="Masukkan Password" 
+                placeholder="Min. 8 karakter (huruf besar, kecil, angka)" 
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                 required
@@ -157,7 +169,7 @@ export default function AdminRegisterPage() {
                 className="w-6 h-6 mt-0.5 border-zinc-300 rounded text-brand-red focus:ring-brand-red cursor-pointer" 
               />
               <label htmlFor="agree-admin" className="text-sm lg:text-lg text-black font-medium cursor-pointer leading-tight">
-                Saya menyetujui Syarat & Ketentuan
+                Saya Menyetujui
               </label>
             </div>
 
@@ -174,6 +186,12 @@ export default function AdminRegisterPage() {
             <p className="text-center text-lg text-black mt-8">
               Sudah punya akun? <Link href="/admin/login" className="text-blue-600 font-semibold hover:underline">Masuk di sini</Link>
             </p>
+            
+            <div className="text-center mt-4">
+              <Link href="/users/register" className="text-brand-red font-bold hover:underline text-lg">
+                Daftar sebagai Pegawai
+              </Link>
+            </div>
           </form>
         </div>
         <StatusModal 

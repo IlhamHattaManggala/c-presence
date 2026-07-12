@@ -42,10 +42,13 @@ export default function AdminLoginPage() {
         .eq('id', user.id)
         .single()
       
-      if (profile?.role === 'admin') {
+      if (profile?.role === 'admin' || profile?.role === 'super_admin') {
         router.push('/admin/dashboard')
       } else {
-        router.push('/users/dashboard')
+        await supabase.auth.signOut()
+        setModal({ isOpen: true, status: 'error', message: 'Akses ditolak. Hanya akun Administrator yang diizinkan masuk.' })
+        setLoading(false)
+        return
       }
     }
     setLoading(false)
@@ -122,9 +125,15 @@ export default function AdminLoginPage() {
               </button>
             </div>
 
-             <p className="text-center text-sm font-medium text-zinc-400 mt-12 italic">
-               Registrasi administrator hanya dapat dilakukan oleh sesama admin melalui panel Master Data.
+             <p className="text-center text-lg text-black mt-12">
+               Belum punya akun admin? <Link href="/admin/register" className="text-blue-600 font-semibold hover:underline">Daftar di sini</Link>
              </p>
+             
+             <div className="text-center mt-4">
+               <Link href="/users/login" className="text-brand-red font-bold hover:underline text-lg">
+                 Masuk sebagai Pegawai
+               </Link>
+             </div>
           </form>
         </div>
         <StatusModal 

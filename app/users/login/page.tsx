@@ -42,8 +42,10 @@ export default function UserLoginPage() {
           .eq('id', userData.user.id)
           .single()
 
-        if (profile?.role === 'admin') {
-          router.push('/admin/dashboard')
+        if (profile?.role === 'admin' || profile?.role === 'super_admin') {
+          await supabase.auth.signOut()
+          setModal({ isOpen: true, status: 'error', message: 'Akses ditolak. Silakan login melalui portal Administrator.' })
+          setLoading(false)
           return
         }
       }
@@ -153,6 +155,12 @@ export default function UserLoginPage() {
             <p className="text-center text-lg text-black mt-12">
               Belum punya akun? <Link href="/users/register" className="text-blue-600 font-semibold hover:underline">Daftar di sini</Link>
             </p>
+            
+            <div className="text-center mt-4">
+              <Link href="/admin/login" className="text-brand-red font-bold hover:underline text-lg">
+                Masuk sebagai Administrator
+              </Link>
+            </div>
           </form>
         </div>
         <StatusModal 

@@ -47,6 +47,18 @@ export default function UserRegisterPage() {
     setLoading(true)
     setModal({ isOpen: true, status: 'loading', message: 'Sedang mendaftarkan akun Anda...' })
 
+    // Validasi Password Kuat
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+    if (!passwordRegex.test(formData.password)) {
+      setModal({ 
+        isOpen: true, 
+        status: 'error', 
+        message: 'Registrasi Gagal: Password harus minimal 8 karakter dan memiliki kombinasi huruf besar, huruf kecil, dan angka.' 
+      })
+      setLoading(false)
+      return
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -137,10 +149,10 @@ export default function UserRegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-lg font-medium text-black">NIK</label>
+              <label className="block text-lg font-medium text-black">ID (Nomor Induk Pegawai)</label>
               <input 
                 type="text" 
-                placeholder="Masukkan NIK" 
+                placeholder="Masukkan ID" 
                 value={formData.nik}
                 onChange={(e) => setFormData({...formData, nik: e.target.value})}
                 required
@@ -152,7 +164,7 @@ export default function UserRegisterPage() {
               <label className="block text-lg font-medium text-black">Password</label>
               <input 
                 type="password" 
-                placeholder="Masukkan Password" 
+                placeholder="Min. 8 karakter (huruf besar, kecil, angka)" 
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                 required
@@ -161,7 +173,7 @@ export default function UserRegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-lg font-medium text-black">Photo Setengah Badan</label>
+              <label className="block text-lg font-medium text-black">Foto profil</label>
               <div className="flex h-11 border border-brand-red rounded-lg overflow-hidden relative">
                 <input 
                   type="file" 
@@ -197,7 +209,7 @@ export default function UserRegisterPage() {
                 className="w-6 h-6 mt-0.5 border-zinc-300 rounded text-brand-red focus:ring-brand-red cursor-pointer" 
               />
               <label htmlFor="agree" className="text-sm lg:text-lg text-black font-medium cursor-pointer leading-tight">
-                Saya menyetujui Syarat & Ketentuan
+                Saya yakin bahwa dokumen ini benar
               </label>
             </div>
 
@@ -214,6 +226,12 @@ export default function UserRegisterPage() {
             <p className="text-center text-lg text-black mt-8">
               Sudah punya akun? <Link href="/users/login" className="text-blue-600 font-semibold hover:underline">Masuk di sini</Link>
             </p>
+            
+            <div className="text-center mt-4">
+              <Link href="/admin/register" className="text-brand-red font-bold hover:underline text-lg">
+                Daftar sebagai Administrator
+              </Link>
+            </div>
           </form>
         </div>
         <StatusModal 

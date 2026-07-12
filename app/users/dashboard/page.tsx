@@ -39,12 +39,31 @@ export default function UserDashboard() {
 
           if (!profile) {
             // Jika profil belum ada di tabel 'users' (misal: baru login Google pertama kali)
-            // Ambil data dasar dari metadata auth
-            setUserData({
+            // Buat profil otomatis dengan NIK sementara (karena NIK NOT NULL di database)
+            const tempNik = 'G-' + Math.floor(Math.random() * 90000000 + 10000000)
+            const newProfile = {
+              id: user.id,
               full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-              position: 'Karyawan Baru',
-              role: 'user'
-            })
+              email: user.email,
+              nik: tempNik,
+              role: 'user',
+              position: 'Passenger Service'
+            }
+
+            const { error: insertError } = await supabase
+              .from('users')
+              .insert(newProfile)
+
+            if (insertError) {
+              console.error("Gagal auto-create profil Google:", insertError.message || insertError)
+              setUserData({
+                full_name: newProfile.full_name,
+                position: 'Karyawan Baru',
+                role: 'user'
+              })
+            } else {
+              setUserData(newProfile)
+            }
           } else {
             setUserData(profile)
           }
