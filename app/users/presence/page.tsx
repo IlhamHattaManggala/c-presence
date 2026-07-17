@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, MapPin, Clock, Camera as CameraIcon, SwitchCamera, Zap, AlertCircle } from 'lucide-react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronLeft, ChevronRight, MapPin, Clock, Camera as CameraIcon, SwitchCamera, Zap, AlertCircle, Loader2 } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { Map, Marker, Overlay } from 'pigeon-maps'
 import { createClient } from '@/lib/supabase/client'
@@ -29,8 +29,10 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 import { StatusModal } from '@/components/StatusModal'
 
-export default function PresencePage() {
+function PresencePageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryStationId = searchParams.get('stationId')
   const supabase = createClient()
   const [userData, setUserData] = useState<any>(null)
   const [todayAttendance, setTodayAttendance] = useState<any>(null)
@@ -136,7 +138,13 @@ export default function PresencePage() {
       // Determine active target station
       let activeStation = selectedStation
       if (!activeStation) {
-        if (userData.allowed_stations && userData.allowed_stations.length > 0) {
+        if (queryStationId) {
+          const matched = allStations.find(s => s.id === queryStationId)
+          if (matched) {
+            activeStation = matched
+            setSelectedStation(matched)
+          }
+        } else if (userData.allowed_stations && userData.allowed_stations.length > 0) {
           if (userData.allowed_stations.length === 1) {
             const matched = allStations.find(s => s.id === userData.allowed_stations[0])
             if (matched) {
@@ -186,7 +194,7 @@ export default function PresencePage() {
         }
       }
     }
-  }, [userLat, userLng, allStations, userData, selectedStation])
+  }, [userLat, userLng, allStations, userData, selectedStation, queryStationId])
 
   const [flash, setFlash] = useState(false)
 
@@ -422,51 +430,7 @@ export default function PresencePage() {
     )
   }
 
-  // Jika di luar radius, tetap tampilkan Map
-  if (userData?.allowed_stations && userData.allowed_stations.length > 1 && !selectedStation && allStations.length > 0) {
-    const allowedSt = allStations.filter(s => userData.allowed_stations.includes(s.id))
-    return (
-      <div className="bg-zinc-50 min-h-screen flex flex-col justify-between pb-12 animate-in fade-in duration-500">
-        <div className="bg-[#B71C1C] pt-12 pb-6 px-6 relative z-30 shadow-sm text-center">
-           <h1 className="text-xl font-bold text-white tracking-tight leading-tight">Pilih Base Presensi Aktif</h1>
-           <p className="text-xs text-white/80 font-bold mt-1">PT KAI COMMUTER INDONESIA</p>
-        </div>
-        
-        <div className="flex-1 p-6 flex flex-col justify-center max-w-md mx-auto w-full">
-           <h2 className="text-lg font-black text-zinc-800 text-center mb-6 leading-tight">
-              Anda memiliki beberapa lokasi stasiun yang diizinkan untuk presensi.
-           </h2>
-           <p className="text-xs font-bold text-zinc-400 text-center mb-8 leading-relaxed">
-              Pilih stasiun tempat Anda bertugas saat ini sebelum melakukan presensi:
-           </p>
-           
-           <div className="space-y-4">
-              {allowedSt.map(station => (
-                 <button 
-                    key={station.id}
-                    onClick={() => setSelectedStation(station)}
-                    className="w-full border-2 border-brand-red p-5 rounded-2xl bg-white shadow-sm flex items-center justify-between text-left hover:bg-red-50 hover:scale-[1.02] active:scale-95 transition-all group"
-                 >
-                    <div>
-                       <h4 className="font-extrabold text-zinc-800 text-base">{station.name}</h4>
-                       <p className="text-zinc-400 text-xs font-bold mt-1">Radius: {station.radius_meters || 600}m</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-red-50 group-hover:bg-[#B71C1C] flex items-center justify-center text-brand-red group-hover:text-white transition-colors">
-                       <ChevronRight size={18} />
-                    </div>
-                 </button>
-              ))}
-           </div>
-        </div>
-        
-        <div className="text-center px-6">
-           <button onClick={() => router.back()} className="text-zinc-400 text-sm font-bold hover:underline">
-              Kembali ke Beranda
-           </button>
-        </div>
-      </div>
-    )
-  }
+
 
   // Jika di luar radius, tetap tampilkan Map
   return (
@@ -564,7 +528,10 @@ export default function PresencePage() {
                 <p className="text-zinc-500 text-[11px] leading-tight">Presensi hanya dapat dilakukan dalam radius {nearestStation.radius_meters || 600} meter dari {nearestStation.name}.</p>
                 {userData?.allowed_stations && userData.allowed_stations.length > 1 && (
                    <button 
-                      onClick={() => setSelectedStation(null)}
+                      onClick={() => {
+                         router.replace('/users/presence')
+                         setSelectedStation(null)
+                      }}
                       className="mt-3 text-xs text-[#B71C1C] font-bold underline hover:text-red-700 w-full pointer-events-auto"
                    >
                       Ganti Stasiun Base Presensi
@@ -587,6 +554,46 @@ export default function PresencePage() {
         )}
       </div>
 
+      {/* List Base Finger Modal */}
+      {userData?.allowed_stations && userData.allowed_stations.length > 1 && !selectedStation && allStations.length > 0 && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center px-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            onClick={() => router.push('/users/dashboard')}
+          ></div>
+          
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative z-10 animate-in zoom-in-95 duration-300">
+            <h3 className="text-lg font-bold text-zinc-950 mb-4 text-center border-b pb-3 border-zinc-100">
+              List Base Finger
+            </h3>
+            
+            <div className="max-h-[300px] overflow-y-auto divide-y divide-zinc-100 pr-1 scrollbar-thin">
+              {allStations
+                .filter(s => userData?.allowed_stations?.includes(s.id))
+                .map(station => (
+                  <button
+                    key={station.id}
+                    onClick={() => {
+                      setSelectedStation(station)
+                    }}
+                    className="w-full py-3.5 text-left text-zinc-800 hover:text-brand-red font-semibold text-sm transition-colors flex items-center justify-between group"
+                  >
+                    <span>{station.name.toUpperCase()}</span>
+                    <span className="text-zinc-400 text-xs font-medium group-hover:translate-x-1 transition-transform">➔</span>
+                  </button>
+                ))}
+            </div>
+            
+            <button 
+              onClick={() => router.push('/users/dashboard')}
+              className="w-full mt-5 py-3 bg-brand-red hover:bg-[#B71C1C] text-white font-bold rounded-xl text-sm transition-all transform active:scale-95 shadow-md shadow-brand-red/10"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
       <StatusModal 
         isOpen={modal.isOpen}
         status={modal.status}
@@ -595,5 +602,18 @@ export default function PresencePage() {
       />
       <BottomNav />
     </div>
+  )
+}
+
+export default function PresencePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="animate-spin text-brand-red" size={48} />
+        <p className="font-bold text-zinc-500">Memuat GPS & Kamera...</p>
+      </div>
+    }>
+      <PresencePageContent />
+    </Suspense>
   )
 }

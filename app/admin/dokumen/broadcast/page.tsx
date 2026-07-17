@@ -198,15 +198,6 @@ export default function BroadcastAdminPage() {
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Sub Navigation Buttons - Satu Baris Horizontal */}
-          <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide mb-6 py-2">
-             <div className="flex flex-nowrap gap-2">
-                <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
-                <button onClick={() => router.push('/admin/dokumen/broadcast')} className="shrink-0 bg-brand-red text-white px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700">Broadcast</button>
-                <button onClick={() => router.push('/admin/dokumen/presensi')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Dokumen Presensi</button>
-             </div>
-          </div>
-
           {/* Search & Filter Toolbar */}
           <div className="flex flex-col md:flex-row items-end gap-6 mb-8 w-full">
             <div className="w-full md:flex-1">

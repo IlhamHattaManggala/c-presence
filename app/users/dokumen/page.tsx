@@ -47,15 +47,6 @@ export default function DokumenPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 mt-6">
-         {/* Submenu for Demo purpoeses: links to generated dynamic document views */}
-         <div className="mb-8">
-            <h2 className="text-sm font-bold text-zinc-800 mb-4 px-2">Dokumen Surat Personal</h2>
-            <div className="grid grid-cols-3 gap-2 px-2">
-               <button onClick={() => router.push('/users/dokumen/dinas-luar')} className="bg-red-50 text-brand-red text-[10px] font-bold py-2 rounded-lg border border-red-200">Surat Dinas L</button>
-               <button onClick={() => router.push('/users/dokumen/ubah-jadwal')} className="bg-red-50 text-brand-red text-[10px] font-bold py-2 rounded-lg border border-red-200">Surat Tukar J.</button>
-               <button onClick={() => router.push('/users/dokumen/izin')} className="bg-red-50 text-brand-red text-[10px] font-bold py-2 rounded-lg border border-red-200">Surat Izin</button>
-            </div>
-         </div>
 
          <div className="mb-6 px-2">
             <h2 className="text-sm font-bold text-zinc-800 mb-3">Pencarian Dokumen SOP</h2>

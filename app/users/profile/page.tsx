@@ -12,6 +12,7 @@ export default function UserProfile() {
   const router = useRouter()
 
   const [userData, setUserData] = React.useState<any>(null)
+  const [isGoogleUser, setIsGoogleUser] = React.useState(false)
   const [editForm, setEditForm] = React.useState<any>({
     full_name: '', nik: '', position: '', shift_code: '', station_id: '',
     email: '', password: '', dinasan_start_time: '', dinasan_end_time: ''
@@ -30,6 +31,7 @@ export default function UserProfile() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        setIsGoogleUser(user.app_metadata?.provider === 'google' || user.identities?.some(id => id.provider === 'google'))
         const { data: profile, error } = await supabase
           .from('users')
           .select('*, stations(*)')
@@ -391,9 +393,13 @@ export default function UserProfile() {
                     type="email" 
                     value={editForm.email}
                     onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                    placeholder="Masukkan email baru"
+                    disabled={isGoogleUser}
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all disabled:opacity-60"
+                    placeholder={isGoogleUser ? "Email login dikelola oleh Google" : "Masukkan email baru"}
                   />
+                  {isGoogleUser && (
+                    <p className="text-[11px] text-zinc-400 font-medium">Email login dikelola oleh Google dan tidak dapat diubah.</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-zinc-700">Password Baru</label>
@@ -402,8 +408,9 @@ export default function UserProfile() {
                     value={editForm.password}
                     onChange={(e) => setEditForm({...editForm, password: e.target.value})}
                     autoComplete="new-password"
-                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                    placeholder="Kosongkan jika tidak ganti"
+                    disabled={isGoogleUser}
+                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all disabled:opacity-60"
+                    placeholder={isGoogleUser ? "Password dikelola oleh Google" : "Kosongkan jika tidak ganti"}
                   />
                 </div>
               </div>

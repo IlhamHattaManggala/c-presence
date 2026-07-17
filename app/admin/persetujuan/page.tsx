@@ -92,22 +92,21 @@ export default function PersetujuanPage() {
       updatePayload.reject_reason = rejectReason || ''
     }
     
-    if (status === 'Disetujui') {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('full_name')
-            .eq('id', user.id)
-            .single()
-          if (profile?.full_name) {
-            updatePayload.approved_by_name = profile.full_name
-          }
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        updatePayload.reviewed_by = user.id
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', user.id)
+          .single()
+        if (status === 'Disetujui' && profile?.full_name) {
+          updatePayload.approved_by_name = profile.full_name
         }
-      } catch (err) {
-        console.error("Error fetching approver profile:", err)
       }
+    } catch (err) {
+      console.error("Error fetching approver profile:", err)
     }
 
     const { error } = await supabase
@@ -266,7 +265,7 @@ export default function PersetujuanPage() {
                               )}
                            </td>
                            <td className="px-6 py-4 text-center">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border whitespace-nowrap ${
                                  req.status === 'Disetujui' ? 'text-green-600 bg-green-50 border-green-100' :
                                  req.status === 'Tidak Disetujui' ? 'text-red-600 bg-red-50 border-red-100' :
                                  'text-orange-600 bg-orange-50 border-orange-100'
@@ -306,7 +305,7 @@ export default function PersetujuanPage() {
                             <h4 className="font-black text-zinc-800 text-sm leading-tight">{req.users?.full_name}</h4>
                             <p className="text-[11px] font-medium text-zinc-500 mt-0.5">{req.users?.position} • {req.users?.stations?.name}</p>
                          </div>
-                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 ${
+                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 whitespace-nowrap ${
                             req.status === 'Disetujui' ? 'text-green-600 bg-green-50 border-green-100' :
                             req.status === 'Tidak Disetujui' ? 'text-red-600 bg-red-50 border-red-100' :
                             'text-orange-600 bg-orange-50 border-orange-100'

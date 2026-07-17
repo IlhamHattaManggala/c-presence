@@ -214,23 +214,43 @@ export async function updateUserAction(userId: string, userData: {
       }
     )
 
-    // 1. Update Auth data if password/email is provided
-    const authUpdatePayload: any = {}
-    if (userData.password && userData.password.trim() !== '') {
-      authUpdatePayload.password = userData.password
-    }
-    if (userData.email) {
-      authUpdatePayload.email = userData.email
-    }
-
-    if (Object.keys(authUpdatePayload).length > 0) {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, authUpdatePayload)
-      if (authError) {
-        return { success: false, error: authError.message }
+    // 1. Fetch current auth user to check if they exist and check their provider
+    let authUser = null
+    try {
+      const { data: { user }, error: getError } = await supabaseAdmin.auth.admin.getUser(userId)
+      if (!getError && user) {
+        authUser = user
       }
+    } catch (e) {
+      console.warn("Failed to fetch auth user details:", e)
     }
 
-    // 2. Update public.users
+    // 2. Conditionally update Auth data only if there are changes and the user exists in auth.users
+    if (authUser) {
+      const authUpdatePayload: any = {}
+      
+      // Update password if provided
+      if (userData.password && userData.password.trim() !== '') {
+        authUpdatePayload.password = userData.password
+      }
+      
+      // Only update email if it has changed AND the user did not sign up via a third-party provider (like Google)
+      const isGoogleUser = authUser.app_metadata?.provider === 'google' || authUser.identities?.some(id => id.provider === 'google')
+      if (userData.email && userData.email.toLowerCase() !== authUser.email?.toLowerCase() && !isGoogleUser) {
+        authUpdatePayload.email = userData.email
+      }
+
+      if (Object.keys(authUpdatePayload).length > 0) {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, authUpdatePayload)
+        if (authError) {
+          return { success: false, error: authError.message }
+        }
+      }
+    } else {
+      console.warn(`User ${userId} not found in auth.users. Skipping auth update.`)
+    }
+
+    // 3. Update public.users
     const { error: dbError } = await supabaseAdmin
       .from('users')
       .update({
@@ -250,6 +270,68 @@ export async function updateUserAction(userId: string, userData: {
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message }
+  }
+}
+
+export async function verifyDocumentAction(id: string) {
+  try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    const { data: request, error: reqError } = await supabaseAdmin
+      .from('approval_requests')
+      .select('*, users:users!approval_requests_user_id_fkey(*)')
+      .eq('id', id)
+      .single()
+
+    if (reqError || !request) {
+      return { success: false, error: 'Dokumen tidak terdaftar atau tanda tangan tidak valid.' }
+    }
+
+    // Fetch Approver Info
+    let name = request.approved_by_name || 'Admin KAI Commuter'
+    let position = 'System Administrator'
+
+    if (request.reviewed_by) {
+      const { data: approver } = await supabaseAdmin
+        .from('users')
+        .select('full_name, position')
+        .eq('id', request.reviewed_by)
+        .single()
+      
+      if (approver) {
+        name = approver.full_name
+        position = approver.position || 'Admin Staff'
+      }
+    } else if (request.approved_by_name) {
+      const { data: approver } = await supabaseAdmin
+        .from('users')
+        .select('full_name, position')
+        .eq('full_name', request.approved_by_name)
+        .eq('role', 'admin')
+        .limit(1)
+        .maybeSingle()
+      
+      if (approver) {
+        position = approver.position || 'Admin Staff'
+      }
+    }
+
+    return { 
+      success: true, 
+      requestData: request, 
+      approverData: { name, position } 
+    }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Terjadi kesalahan saat memverifikasi dokumen.' }
   }
 }
 

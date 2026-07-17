@@ -77,7 +77,6 @@ export default function NotifikasiAdminPage() {
           
           <div className="flex justify-between items-center mb-8">
              <h3 className="text-lg font-bold text-brand-red">Hari ini</h3>
-             <button className="text-brand-red font-bold text-sm hover:underline">Lihat semuanya</button>
           </div>
 
           <div className="space-y-4">

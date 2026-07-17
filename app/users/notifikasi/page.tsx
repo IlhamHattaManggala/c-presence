@@ -1,12 +1,70 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, ChevronLeft } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { createClient } from '@/lib/supabase/client'
 
 export default function NotifikasiMainPage() {
   const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
+  
+  const [unreadInfo, setUnreadInfo] = useState(0)
+  const [unreadRiwayat, setUnreadRiwayat] = useState(0)
+
+  useEffect(() => {
+    const fetchUnreadCounts = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // 1. Fetch unread INFO notifications
+        const { count: infoCount, error: infoError } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+          .eq('type', 'INFO')
+
+        if (!infoError && infoCount !== null) {
+          setUnreadInfo(infoCount)
+        }
+
+        // 2. Fetch unread APPROVAL_UPDATE notifications
+        const { count: riwayatCount, error: riwayatError } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+          .eq('type', 'APPROVAL_UPDATE')
+
+        if (!riwayatError && riwayatCount !== null) {
+          setUnreadRiwayat(riwayatCount)
+        }
+      } catch (err) {
+        console.error('Error fetching unread notification counts:', err)
+      }
+    }
+
+    fetchUnreadCounts()
+
+    // Subscribe to notification updates
+    const channel = supabase
+      .channel('notifications-main-badge-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          fetchUnreadCounts()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
 
   return (
     <div className="bg-zinc-50 min-h-screen pb-32">
@@ -33,13 +91,18 @@ export default function NotifikasiMainPage() {
          </div>
 
          <div className="space-y-4">
-            {/* Card 1 */}
+            {/* Card 1: Informasi */}
             <div 
               onClick={() => router.push('/users/notifikasi/info')}
               className="bg-brand-red rounded-xl p-6 relative overflow-hidden shadow-lg cursor-pointer transform transition active:scale-[0.98] hover:-translate-y-1"
             >
-              <div className="relative z-10 flex text-white font-bold text-xl uppercase w-1/2 leading-tight">
-                 Informasi
+              <div className="relative z-10 flex items-center space-x-3 text-white font-bold text-xl uppercase leading-tight">
+                 <span>Informasi</span>
+                 {unreadInfo > 0 && (
+                   <span className="bg-white text-brand-red text-xs font-black px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                     {unreadInfo}
+                   </span>
+                 )}
               </div>
               {/* Decorative Pattern Background */}
               <div className="absolute top-0 right-0 w-32 h-full opacity-30">
@@ -47,13 +110,18 @@ export default function NotifikasiMainPage() {
               </div>
             </div>
 
-            {/* Card 2 */}
+            {/* Card 2: Riwayat Pengajuan */}
             <div 
               onClick={() => router.push('/users/notifikasi/riwayat')}
               className="bg-brand-red rounded-xl p-6 relative overflow-hidden shadow-lg cursor-pointer transform transition active:scale-[0.98] hover:-translate-y-1"
             >
-              <div className="relative z-10 flex text-white font-bold text-xl uppercase w-1/2 leading-tight">
-                 Riwayat Pengajuan
+              <div className="relative z-10 flex items-center space-x-3 text-white font-bold text-xl uppercase leading-tight">
+                 <span>Riwayat Pengajuan</span>
+                 {unreadRiwayat > 0 && (
+                   <span className="bg-white text-brand-red text-xs font-black px-2.5 py-0.5 rounded-full shadow-sm animate-pulse">
+                     {unreadRiwayat}
+                   </span>
+                 )}
               </div>
               {/* Decorative Pattern Background */}
               <div className="absolute top-0 right-0 w-32 h-full opacity-30">

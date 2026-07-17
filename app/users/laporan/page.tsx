@@ -66,6 +66,48 @@ export default function LaporanPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
 
+  const [userData, setUserData] = useState<any>(null)
+  const [allStations, setAllStations] = useState<any[]>([])
+  const [isBaseModalOpen, setIsBaseModalOpen] = useState(false)
+
+  useEffect(() => {
+    const fetchUserAndStations = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        setUserData(profile)
+
+        const { data: stations } = await supabase
+          .from('stations')
+          .select('*')
+          .order('name')
+        if (stations) {
+          setAllStations(stations)
+        }
+      }
+    }
+    fetchUserAndStations()
+  }, [])
+
+  const handleBasePresensiClick = () => {
+    if (!userData) return
+    const allowedIds = userData.allowed_stations || []
+    if (allowedIds.length > 1) {
+      setIsBaseModalOpen(true)
+    } else {
+      const targetStationId = allowedIds[0] || userData.station_id
+      if (targetStationId) {
+        router.push(`/users/presence?stationId=${targetStationId}`)
+      } else {
+        router.push('/users/presence')
+      }
+    }
+  }
+
   // Generate last 6 months options
   const getMonthOptions = () => {
     const options = []
@@ -183,10 +225,10 @@ export default function LaporanPage() {
           {/* Top Button */}
           <div className="flex justify-center mb-8">
              <button 
-               onClick={() => router.push('/users/statistik')}
+               onClick={handleBasePresensiClick}
                className="bg-white border border-zinc-200 px-8 py-2.5 rounded-lg shadow-sm font-medium text-zinc-800 text-sm w-full max-w-sm hover:bg-zinc-50 transition"
              >
-               Statistik Presensi
+               Base Presensi
              </button>
           </div>
 
@@ -256,6 +298,47 @@ export default function LaporanPage() {
           
         </div>
       </div>
+
+      {/* Base Presensi Modal */}
+      {isBaseModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center px-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            onClick={() => setIsBaseModalOpen(false)}
+          ></div>
+          
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-6 shadow-2xl relative z-10 animate-in zoom-in-95 duration-300">
+            <h3 className="text-lg font-bold text-zinc-950 mb-4 text-center border-b pb-3 border-zinc-100">
+              List Base Finger
+            </h3>
+            
+            <div className="max-h-[300px] overflow-y-auto divide-y divide-zinc-100 pr-1 scrollbar-thin">
+              {allStations
+                .filter(s => userData?.allowed_stations?.includes(s.id))
+                .map(station => (
+                  <button
+                    key={station.id}
+                    onClick={() => {
+                      setIsBaseModalOpen(false)
+                      router.push(`/users/presence?stationId=${station.id}`)
+                    }}
+                    className="w-full py-3.5 text-left text-zinc-800 hover:text-brand-red font-semibold text-sm transition-colors flex items-center justify-between group"
+                  >
+                    <span>{station.name.toUpperCase()}</span>
+                    <span className="text-zinc-400 text-xs font-medium group-hover:translate-x-1 transition-transform">➔</span>
+                  </button>
+                ))}
+            </div>
+            
+            <button 
+              onClick={() => setIsBaseModalOpen(false)}
+              className="w-full mt-5 py-3 bg-brand-red hover:bg-[#B71C1C] text-white font-bold rounded-xl text-sm transition-all transform active:scale-95 shadow-md shadow-brand-red/10"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

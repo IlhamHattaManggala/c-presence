@@ -320,22 +320,10 @@ export default function DokumenPresensiPage() {
          </div>
        </div>
 
-       {/* Main Content */}
-       <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
-           {/* Sub Navigation Buttons & Actions */}
-           <div className="w-full max-w-6xl mx-auto flex flex-col items-center md:items-end justify-between mb-8 md:mb-10 space-y-6">
-              
-              {/* Horizontal Navigation */}
-              <div className="w-full flex justify-start md:justify-end overflow-x-auto scrollbar-hide py-2">
-                 <div className="flex flex-nowrap gap-2">
-                    <button onClick={() => router.push('/admin/dokumen/pendaftaran')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Pendaftaran</button>
-                    <button onClick={() => router.push('/admin/dokumen/broadcast')} className="shrink-0 bg-white text-zinc-600 border border-brand-red px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold transition-all hover:bg-red-50">Broadcast</button>
-                    <button onClick={() => router.push('/admin/dokumen/presensi')} className="shrink-0 bg-brand-red text-white px-5 md:px-8 py-2 rounded-lg text-[10px] md:text-xs font-bold shadow-md shadow-brand-red/20 transition-all hover:bg-red-700">Dokumen Presensi</button>
-                 </div>
-              </div>
-
-                {/* Upload & Export Actions */}
-                <div className="w-full flex flex-col xl:flex-row items-center justify-between gap-4 border-t border-zinc-100 pt-6">
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 scrollbar-hide">
+            {/* Upload & Export Actions */}
+            <div className="w-full max-w-6xl mx-auto mb-8 md:mb-10">
+                 <div className="w-full flex flex-col xl:flex-row items-center justify-between gap-4">
                    {/* Export Monthly Excel SLA & Attendance */}
                    <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
                       <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Ekspor Laporan Bulanan:</span>

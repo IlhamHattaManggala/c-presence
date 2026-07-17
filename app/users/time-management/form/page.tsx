@@ -43,6 +43,7 @@ function TimeManagementFormContent() {
   })
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [shifts, setShifts] = useState<any[]>([])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -56,14 +57,18 @@ function TimeManagementFormContent() {
   }
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase.from('users').select('*, stations(name)').eq('id', user.id).single()
         setUserData(profile as UserProfile)
       }
+      const { data: shiftsData } = await supabase.from('shifts').select('*').order('code')
+      if (shiftsData) {
+        setShifts(shiftsData)
+      }
     }
-    fetchUser()
+    fetchData()
   }, [supabase])
 
   const handleSubmit = async () => {
@@ -249,13 +254,11 @@ function TimeManagementFormContent() {
                                   className="w-full h-11 border border-zinc-200 rounded-lg px-4 appearance-none focus:outline-none bg-white font-bold text-zinc-900"
                                 >
                                    <option value="">Pilih Kode Dinas Semula</option>
-                                   <option value="DP2">DP2 (06.00 - 14.00)</option>
-                                   <option value="DP3">DP3 (14.00 - 22.00)</option>
-                                   <option value="DS1">DS1 (07.00 - 15.00)</option>
-                                   <option value="DS2">DS2 (08.00 - 16.00)</option>
-                                   <option value="DS5">DS5 (13.00 - 21.00)</option>
-                                   <option value="M">M (Malam - 22.00 - 06.00)</option>
-                                   <option value="L">L (Libur)</option>
+                                   {shifts.map(s => (
+                                      <option key={s.code} value={s.code}>
+                                         {s.code} - {s.description || ''} {s.start_time ? `(${s.start_time.substring(0, 5)} - ${s.end_time.substring(0, 5)})` : ''}
+                                      </option>
+                                   ))}
                                 </select>
                              </div>
                           </div>
@@ -277,13 +280,11 @@ function TimeManagementFormContent() {
                                   className="w-full h-11 border border-brand-red/50 rounded-lg px-4 appearance-none focus:outline-none bg-white font-bold text-zinc-900"
                                 >
                                    <option value="">Pilih Kode Dinas Baru</option>
-                                   <option value="DP2">DP2 (06.00 - 14.00)</option>
-                                   <option value="DP3">DP3 (14.00 - 22.00)</option>
-                                   <option value="DS1">DS1 (07.00 - 15.00)</option>
-                                   <option value="DS2">DS2 (08.00 - 16.00)</option>
-                                   <option value="DS5">DS5 (13.00 - 21.00)</option>
-                                   <option value="M">M (Malam - 22.00 - 06.00)</option>
-                                   <option value="L">L (Libur)</option>
+                                   {shifts.map(s => (
+                                      <option key={s.code} value={s.code}>
+                                         {s.code} - {s.description || ''} {s.start_time ? `(${s.start_time.substring(0, 5)} - ${s.end_time.substring(0, 5)})` : ''}
+                                      </option>
+                                   ))}
                                 </select>
                              </div>
                           </div>
