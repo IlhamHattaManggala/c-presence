@@ -217,7 +217,7 @@ export async function updateUserAction(userId: string, userData: {
     // 1. Fetch current auth user to check if they exist and check their provider
     let authUser = null
     try {
-      const { data: { user }, error: getError } = await supabaseAdmin.auth.admin.getUser(userId)
+      const { data: { user }, error: getError } = await supabaseAdmin.auth.admin.getUserById(userId)
       if (!getError && user) {
         authUser = user
       }

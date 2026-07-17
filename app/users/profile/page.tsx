@@ -31,7 +31,7 @@ export default function UserProfile() {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setIsGoogleUser(user.app_metadata?.provider === 'google' || user.identities?.some(id => id.provider === 'google'))
+        setIsGoogleUser(user.app_metadata?.provider === 'google' || (user.identities?.some(id => id.provider === 'google') ?? false))
         const { data: profile, error } = await supabase
           .from('users')
           .select('*, stations(*)')
