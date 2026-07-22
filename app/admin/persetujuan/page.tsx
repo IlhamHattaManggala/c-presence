@@ -103,6 +103,7 @@ export default function PersetujuanPage() {
           .single()
         if (status === 'Disetujui' && profile?.full_name) {
           updatePayload.approved_by_name = profile.full_name
+          updatePayload.approved_at = new Date().toISOString()
         }
       }
     } catch (err) {

@@ -103,9 +103,6 @@ export default function UserProfile() {
           nik: editForm.nik,
           position: editForm.position,
           station_id: editForm.station_id || null,
-          shift_code: editForm.shift_code || null,
-          dinasan_start_time: editForm.dinasan_start_time || null,
-          dinasan_end_time: editForm.dinasan_end_time || null,
           email: editForm.email,
           role: userData.role || 'user'
         })
@@ -452,58 +449,7 @@ export default function UserProfile() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-bold text-zinc-700">Kode Dinas</label>
-                <div className="relative">
-                  <select 
-                    value={editForm.shift_code}
-                    onChange={(e) => {
-                      const code = e.target.value
-                      const matched = shifts.find(s => s.code === code)
-                      if (matched) {
-                        setEditForm({
-                          ...editForm,
-                          shift_code: code,
-                          dinasan_start_time: matched.start_time ? matched.start_time.substring(0, 5) : '',
-                          dinasan_end_time: matched.end_time ? matched.end_time.substring(0, 5) : ''
-                        })
-                      } else {
-                        setEditForm({
-                          ...editForm,
-                          shift_code: code
-                        })
-                      }
-                    }}
-                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all appearance-none"
-                  >
-                    <option value="">Pilih Kode Dinas</option>
-                    {shifts.map(s => (
-                      <option key={s.code} value={s.code}>{s.code} - {s.description || ''}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-zinc-700">Jam Dinas Masuk</label>
-                  <input 
-                    type="time" 
-                    value={editForm.dinasan_start_time}
-                    onChange={(e) => setEditForm({...editForm, dinasan_start_time: e.target.value})}
-                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-zinc-700">Jam Dinas Pulang</label>
-                  <input 
-                    type="time" 
-                    value={editForm.dinasan_end_time}
-                    onChange={(e) => setEditForm({...editForm, dinasan_end_time: e.target.value})}
-                    className="w-full h-12 bg-zinc-50 border border-zinc-100 rounded-xl px-4 text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 focus:border-brand-red transition-all"
-                  />
-                </div>
-              </div>
+              {/* Kode Dinas & Jam Dinas dikelola eksklusif oleh Admin */}
 
               <div className="flex space-x-3 pt-6">
                 <button 

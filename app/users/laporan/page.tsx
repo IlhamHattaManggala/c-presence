@@ -13,17 +13,18 @@ const AttendanceCard = ({
   return (
     <div className={`p-1.5 rounded-xl flex gap-1.5 shadow-sm transform transition hover:scale-[1.02] ${themeClasses.bg}`}>
       {/* Date Block */}
-      <div className="bg-white w-12 sm:w-16 rounded-l-lg flex flex-col items-center justify-center font-bold text-xl text-zinc-800">
-        {date}
+      <div className="bg-white w-12 sm:w-16 rounded-l-lg flex flex-col items-center justify-center font-bold text-zinc-800 py-1">
+        <span className="text-[8px] sm:text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-0.5">Tanggal</span>
+        <span className="text-lg sm:text-xl font-bold leading-none">{date}</span>
       </div>
 
       {/* Middle Block */}
-      <div className="bg-white flex-1 rounded-md p-2 flex flex-col relative">
-        <div className="flex justify-between items-center border-b border-dashed border-zinc-300 pb-1 mb-1">
-          <span className="text-[10px] sm:text-xs text-zinc-500">{day}</span>
-          {percentage && <span className="text-[10px] sm:text-xs text-zinc-500">{percentage}</span>}
+      <div className="bg-white flex-1 rounded-md p-2 flex flex-col justify-center items-center relative text-center">
+        <div className="flex justify-center items-center border-b border-dashed border-zinc-300 pb-1 mb-1 w-full">
+          <span className="text-[10px] sm:text-xs text-zinc-500 font-semibold">{day}</span>
+          {percentage && <span className="text-[10px] sm:text-xs text-zinc-500 font-semibold ml-2">{percentage}</span>}
         </div>
-        <span className="text-zinc-800 text-sm sm:text-base mb-1">{status}</span>
+        <span className="text-zinc-800 text-sm sm:text-base mb-1 font-bold leading-tight">{status}</span>
       </div>
 
       {/* Right Block */}
@@ -59,7 +60,7 @@ export default function LaporanPage() {
   const supabase = createClient()
   const [attendanceList, setAttendanceList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState({ normal: 0, telat: 0, dinas: 0, total: 0 })
+  const [summary, setSummary] = useState({ normal: 0, telat: 0, dinas: 0, konfirmasi: 0, total: 0 })
   
   const [selectedMonthStr, setSelectedMonthStr] = useState<string>(() => {
     const now = new Date()
@@ -148,65 +149,102 @@ export default function LaporanPage() {
           .order('date', { ascending: false })
         
         if (!error && data) {
-          const mapped = data.map(item => {
-            const dt = new Date(item.date)
-            const status = item.status || 'Hadir'
-            const isDinasLuar = item.is_dinas_luar || status === 'Dinas Luar'
-            
-            // Basic theme mapping
-            let theme: any = { 
-              bg: 'bg-[#3B82F6]', // Biru for Tepat Waktu / Hadir
-              badgeMasuk: 'bg-[#3B82F6] text-white',
-              badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
-              badgePulang: 'bg-[#3B82F6] text-white' 
-            }
+          const today = new Date()
+          const currentYear = today.getFullYear()
+          const currentMonth = today.getMonth() + 1
+          const [yearNum, monthNum] = selectedMonthStr.split('-').map(Number)
 
-            if (status === 'Telat') {
-              theme = { 
-                bg: 'bg-[#E53935]', // Merah for Telat
-                badgeMasuk: 'bg-[#E53935] text-white', 
+          let maxDay = lastDay
+          if (yearNum === currentYear && monthNum === currentMonth) {
+            maxDay = today.getDate()
+          }
+
+          const mapped: any[] = []
+          for (let d = maxDay; d >= 1; d--) {
+            const dayStr = String(d).padStart(2, '0')
+            const dateStr = `${yearStr}-${monthStr}-${dayStr}`
+            const item = data.find(r => r.date === dateStr)
+
+            if (item) {
+              const status = item.status || 'Hadir'
+              const isDinasLuar = item.is_dinas_luar || status === 'Dinas Luar'
+              
+              let theme: any = { 
+                bg: 'bg-[#3B82F6]', // Biru for Tepat Waktu / Hadir
+                badgeMasuk: 'bg-[#3B82F6] text-white',
                 badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
-                badgePulang: 'bg-[#3B82F6] text-white'
+                badgePulang: 'bg-[#3B82F6] text-white' 
               }
-            } else if (isDinasLuar) {
-              theme = {
-                bg: 'bg-[#1DB98A]', // Hijau for Dinas Luar
-                badgeMasuk: 'bg-[#1DB98A] text-white',
-                badgeEmpty: 'bg-[#1DB98A] text-white',
-                badgePulang: 'bg-[#1DB98A] text-white'
-              }
-            }
-            
-            const displayStatus = isDinasLuar ? 'Dinas Luar' : (status === 'Telat' ? 'Telat' : 'Tepat Waktu')
 
-            return {
-              date: dt.getDate().toString().padStart(2, '0'),
-              day: dt.toLocaleDateString('id-ID', { weekday: 'long' }),
-              status: displayStatus,
-              masuk: item.clock_in ? String(item.clock_in).replace(/\./g, ':').substring(0, 5) : '--:--',
-              pulang: item.clock_out ? String(item.clock_out).replace(/\./g, ':').substring(0, 5) : '--:--',
-              jadwalMasuk: item.users?.dinasan_start_time ? item.users.dinasan_start_time.substring(0, 5) : (item.users?.shift_code || '08:00'),
-              jadwalPulang: item.users?.dinasan_end_time ? item.users.dinasan_end_time.substring(0, 5) : '17:00',
-              themeClasses: theme
+              if (status === 'Telat') {
+                theme = { 
+                  bg: 'bg-[#E53935]', // Merah for Telat
+                  badgeMasuk: 'bg-[#E53935] text-white', 
+                  badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
+                  badgePulang: 'bg-[#3B82F6] text-white'
+                }
+              } else if (isDinasLuar) {
+                theme = {
+                  bg: 'bg-[#1DB98A]', // Hijau for Dinas Luar
+                  badgeMasuk: 'bg-[#1DB98A] text-white',
+                  badgeEmpty: 'bg-[#1DB98A] text-white',
+                  badgePulang: 'bg-[#1DB98A] text-white'
+                }
+              }
+              
+              const displayStatus = isDinasLuar ? 'Dinas Luar' : (status === 'Telat' ? 'Telat' : 'Tepat Waktu')
+              const dt = new Date(Number(yearStr), Number(monthStr) - 1, d)
+
+              mapped.push({
+                date: dayStr,
+                day: dt.toLocaleDateString('id-ID', { weekday: 'long' }),
+                status: displayStatus,
+                masuk: item.clock_in ? String(item.clock_in).replace(/\./g, ':').substring(0, 5) : '--:--',
+                pulang: item.clock_out ? String(item.clock_out).replace(/\./g, ':').substring(0, 5) : '--:--',
+                jadwalMasuk: item.users?.dinasan_start_time ? item.users.dinasan_start_time.substring(0, 5) : (item.users?.shift_code || '08:00'),
+                jadwalPulang: item.users?.dinasan_end_time ? item.users.dinasan_end_time.substring(0, 5) : '17:00',
+                themeClasses: theme
+              })
+            } else {
+              const dt = new Date(Number(yearStr), Number(monthStr) - 1, d)
+              const theme = { 
+                bg: 'bg-[#FFB300]', // Yellow for Konfirmasi
+                badgeMasuk: 'bg-[#FFB300] text-white',
+                badgeEmpty: 'bg-zinc-200 text-zinc-400 border border-zinc-200',
+                badgePulang: 'bg-[#FFB300] text-white' 
+              }
+
+              mapped.push({
+                date: dayStr,
+                day: dt.toLocaleDateString('id-ID', { weekday: 'long' }),
+                status: 'Konfirmasi',
+                masuk: '--:--',
+                pulang: '--:--',
+                jadwalMasuk: userData?.dinasan_start_time ? userData.dinasan_start_time.substring(0, 5) : (userData?.shift_code || '08:00'),
+                jadwalPulang: userData?.dinasan_end_time ? userData.dinasan_end_time.substring(0, 5) : '17:00',
+                themeClasses: theme
+              })
             }
-          })
+          }
+
           setAttendanceList(mapped)
           
           setSummary({
             normal: mapped.filter(m => m.status === 'Tepat Waktu').length,
             telat: mapped.filter(m => m.status === 'Telat').length,
             dinas: mapped.filter(m => m.status === 'Dinas Luar').length,
+            konfirmasi: mapped.filter(m => m.status === 'Konfirmasi').length,
             total: mapped.length
           })
         } else {
           setAttendanceList([])
-          setSummary({ normal: 0, telat: 0, dinas: 0, total: 0 })
+          setSummary({ normal: 0, telat: 0, dinas: 0, konfirmasi: 0, total: 0 })
         }
       }
       setLoading(false)
     }
     fetchHistory()
-  }, [selectedMonthStr])
+  }, [selectedMonthStr, userData?.shift_code, userData?.dinasan_start_time, userData?.dinasan_end_time])
 
   return (
     <div className="bg-zinc-50 min-h-screen pb-24">
@@ -268,7 +306,7 @@ export default function LaporanPage() {
                    <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Dinas Luar</span>
                 </div>
                 <div className="flex flex-col">
-                   <span className="text-[#FFB300] font-bold text-lg">0</span>
+                   <span className="text-[#FFB300] font-bold text-lg">{summary.konfirmasi}</span>
                    <span className="text-[10px] sm:text-xs text-zinc-700 font-medium">Konfirmasi</span>
                 </div>
                 <div className="flex flex-col">

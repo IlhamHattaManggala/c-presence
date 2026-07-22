@@ -113,6 +113,9 @@ export async function createUserAction(userData: {
   role: 'user' | 'admin'
   position?: string
   allowed_stations?: string[]
+  shift_code?: string | null
+  dinasan_start_time?: string | null
+  dinasan_end_time?: string | null
 }) {
   try {
     const supabaseAdmin = createClient(
@@ -146,7 +149,10 @@ export async function createUserAction(userData: {
         nik: userData.nik || null,
         role: userData.role || 'user',
         position: userData.position || null,
-        allowed_stations: userData.allowed_stations || null
+        allowed_stations: userData.allowed_stations || null,
+        shift_code: userData.shift_code || null,
+        dinasan_start_time: userData.dinasan_start_time || null,
+        dinasan_end_time: userData.dinasan_end_time || null
       }, { onConflict: 'id' })
 
       if (dbError) {
@@ -201,6 +207,9 @@ export async function updateUserAction(userId: string, userData: {
   position?: string
   password?: string
   allowed_stations?: string[]
+  shift_code?: string | null
+  dinasan_start_time?: string | null
+  dinasan_end_time?: string | null
 }) {
   try {
     const supabaseAdmin = createClient(
@@ -259,7 +268,10 @@ export async function updateUserAction(userId: string, userData: {
         nik: userData.nik || null,
         role: userData.role || 'user',
         position: userData.position || null,
-        allowed_stations: userData.allowed_stations || null
+        allowed_stations: userData.allowed_stations || null,
+        shift_code: userData.shift_code || null,
+        dinasan_start_time: userData.dinasan_start_time || null,
+        dinasan_end_time: userData.dinasan_end_time || null
       })
       .eq('id', userId)
 

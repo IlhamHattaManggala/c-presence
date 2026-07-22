@@ -234,7 +234,7 @@ export default function DokumenPresensiPage() {
       e.preventDefault()
       if (!uploadForm.title) return
       if (!editingDoc && !selectedFile) {
-         setModal({ isOpen: true, status: 'error', message: 'Harap pilih file PDF terlebih dahulu.' })
+         setModal({ isOpen: true, status: 'error', message: 'Harap pilih file PDF atau Excel terlebih dahulu.' })
          return
       }
 
@@ -298,12 +298,13 @@ export default function DokumenPresensiPage() {
       }
    }
 
-   const getCategoryLabel = (cat: string) => {
-      if (cat === 'HADIR') return 'Kehadiran'
-      if (cat === 'TELAT') return 'Ketelambatan'
-      if (cat === 'TIDAK_HADIR') return 'Ketidakhadiran'
-      return 'Keseluruhan'
-   }
+    const getCategoryLabel = (cat: string) => {
+       if (cat === 'HADIR') return 'Kehadiran'
+       if (cat === 'TELAT') return 'Ketelambatan'
+       if (cat === 'TIDAK_HADIR') return 'Ketidakhadiran'
+       if (cat === 'REKON_SLA') return 'Rekon SLA'
+       return 'Keseluruhan'
+    }
 
    return (
      <div className="h-full flex flex-col bg-white">
@@ -476,10 +477,11 @@ export default function DokumenPresensiPage() {
                            onChange={(e) => setUploadForm({...uploadForm, category: e.target.value})}
                            className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-black focus:outline-none appearance-none cursor-pointer font-bold bg-white"
                          >
-                            <option value="HADIR">Kehadiran</option>
-                            <option value="TELAT">Ketelambatan</option>
-                            <option value="TIDAK_HADIR">Ketidakhadiran</option>
-                            <option value="ALL">Keseluruhan</option>
+                             <option value="HADIR">Kehadiran</option>
+                             <option value="TELAT">Ketelambatan</option>
+                             <option value="TIDAK_HADIR">Ketidakhadiran</option>
+                             <option value="REKON_SLA">Rekon SLA</option>
+                             <option value="ALL">Keseluruhan</option>
                          </select>
                       </div>
 
@@ -492,18 +494,18 @@ export default function DokumenPresensiPage() {
                             <div className="w-12 h-12 bg-red-50 text-brand-red rounded-full flex items-center justify-center">
                                <FileText size={24} />
                             </div>
-                            <p className="text-sm font-bold text-zinc-800 text-center px-4">
-                               {selectedFile ? selectedFile.name : editingDoc ? 'File tersimpan (klik untuk ganti)' : 'Pilih file PDF'}
-                            </p>
-                            <p className="text-xs text-zinc-400">Klik untuk menjelajah file</p>
-                         </div>
-                         <input 
-                           type="file"
-                           hidden
-                           ref={fileInputRef}
-                           accept=".pdf,application/pdf"
-                           onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                         />
+                             <p className="text-sm font-bold text-zinc-800 text-center px-4">
+                                {selectedFile ? selectedFile.name : editingDoc ? 'File tersimpan (klik untuk ganti)' : 'Pilih file PDF atau Excel'}
+                             </p>
+                             <p className="text-xs text-zinc-400">Klik untuk menjelajah file</p>
+                          </div>
+                          <input 
+                            type="file"
+                            hidden
+                            ref={fileInputRef}
+                            accept=".pdf,application/pdf,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                          />
                       </div>
 
                       <div className="pt-4 flex space-x-3">

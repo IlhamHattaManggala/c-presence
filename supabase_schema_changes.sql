@@ -81,4 +81,8 @@ ALTER TABLE public.approval_requests ADD COLUMN IF NOT EXISTS reject_reason TEXT
 -- 13. Add lampiran_izin_url text to approval_requests table
 ALTER TABLE public.approval_requests ADD COLUMN IF NOT EXISTS lampiran_izin_url TEXT;
 
+-- 14. Add approved_at timestamp with time zone to approval_requests table
+ALTER TABLE public.approval_requests ADD COLUMN IF NOT EXISTS approved_at timestamp with time zone;
+
+
 

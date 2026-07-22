@@ -45,7 +45,9 @@ export default function RiwayatPage() {
               status: req.status,
               created_at: notif.created_at, // Use notification created date
               notification_id: notif.id,
-              is_read: notif.is_read
+              is_read: notif.is_read,
+              approved_by_name: req.approved_by_name,
+              approved_at: req.approved_at || req.created_at
             }
           }).filter(Boolean)
 
@@ -110,6 +112,11 @@ export default function RiwayatPage() {
                    <span className={`text-[11px] font-bold mb-1 ${item.status === 'Disetujui' ? 'text-green-600' : item.status === 'Proses' ? 'text-orange-500' : 'text-brand-red'}`}>
                       {item.status} {item.status === 'Disetujui' && ' (Klik untuk Cetak)'}
                    </span>
+                   {item.status === 'Disetujui' && (
+                      <p className="text-[11px] text-green-700 font-bold mt-1.5 mb-2 leading-relaxed">
+                         Surat ini di acc sama admin {item.approved_by_name || 'Admin'} pada hari {new Date(item.approved_at).toLocaleDateString('id-ID', { weekday: 'long' })}, tanggal {new Date(item.approved_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                   )}
                    <p className="text-[10px] text-zinc-400 font-medium">
                       {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                    </p>

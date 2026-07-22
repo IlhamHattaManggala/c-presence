@@ -220,6 +220,11 @@ function SuratIzinContent() {
             </div>
 
             <p>Demikian surat pernyataan ini dibuat agar dapat dipergunakan sebagaimana mestinya.</p>
+            {requestData.status === 'Disetujui' && (
+              <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-[11px] sm:text-xs font-bold text-center">
+                Surat ini di acc sama admin {requestData.approved_by_name || 'Admin'} pada hari {new Date(requestData.approved_at || requestData.created_at).toLocaleDateString('id-ID', { weekday: 'long' })}, tanggal {new Date(requestData.approved_at || requestData.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            )}
           </div>
 
           {/* Signature basah dengan E-Sign QR Code */}

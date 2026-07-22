@@ -21,6 +21,7 @@ export default function MasterDataPage() {
   const [formData, setFormData] = useState<any>({})
   const [sopFile, setSopFile] = useState<File | null>(null)
   const [allStations, setAllStations] = useState<any[]>([])
+  const [allShifts, setAllShifts] = useState<any[]>([])
   
   const [modal, setModal] = useState<{isOpen: boolean, status: 'loading' | 'success' | 'error', message: string}>({
     isOpen: false, status: 'success', message: ''
@@ -94,6 +95,8 @@ export default function MasterDataPage() {
     if (activeTab === 'USER') {
        const { data: stData } = await supabase.from('stations').select('id, name').order('name')
        if (stData) setAllStations(stData)
+       const { data: shData } = await supabase.from('shifts').select('*').order('code')
+       if (shData) setAllShifts(shData)
     }
 
     setLoading(false)
@@ -200,7 +203,10 @@ export default function MasterDataPage() {
           role: formData.role || 'user',
           position: formData.position,
           password: formData.password,
-          allowed_stations: formData.allowed_stations || []
+          allowed_stations: formData.allowed_stations || [],
+          shift_code: formData.shift_code || null,
+          dinasan_start_time: formData.dinasan_start_time || null,
+          dinasan_end_time: formData.dinasan_end_time || null
         })
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal memperbarui Pengguna: ' + actionResult.error })
@@ -219,7 +225,10 @@ export default function MasterDataPage() {
           nik: formData.nik,
           role: formData.role || 'user',
           position: formData.position,
-          allowed_stations: formData.allowed_stations || []
+          allowed_stations: formData.allowed_stations || [],
+          shift_code: formData.shift_code || null,
+          dinasan_start_time: formData.dinasan_start_time || null,
+          dinasan_end_time: formData.dinasan_end_time || null
         })
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Pengguna: ' + actionResult.error })
@@ -247,7 +256,7 @@ export default function MasterDataPage() {
     } else if (activeTab === 'SHIFT') {
        setFormData({ code: '', description: '', start_time: '', end_time: '' })
     } else if (activeTab === 'USER') {
-       setFormData({ nik: '', full_name: '', email: '', role: 'user', position: '', password: 'password123', allowed_stations: [] })
+       setFormData({ nik: '', full_name: '', email: '', role: 'user', position: '', password: 'password123', allowed_stations: [], shift_code: '', dinasan_start_time: '', dinasan_end_time: '' })
     } else if (activeTab === 'SOP') {
        setFormData({ title: '' })
        setSopFile(null)
@@ -728,26 +737,70 @@ export default function MasterDataPage() {
                      </div>
                      
                      <div className="space-y-2">
-                       <label className="text-sm font-bold text-zinc-700">Jabatan / Posisi</label>
-                       <input 
-                         type="text" 
-                         value={formData.position || ''}
-                         onChange={e => setFormData({...formData, position: e.target.value})}
-                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
-                         placeholder="Contoh: Passenger Service"
-                       />
-                     </div>
-                     <div className="space-y-2">
-                       <label className="text-sm font-bold text-zinc-700">Password</label>
-                       <input 
-                         required={!editingId}
-                         type="password" 
-                         value={formData.password || ''}
-                         onChange={e => setFormData({...formData, password: e.target.value})}
-                         className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
-                         placeholder="Set Password Login"
-                       />
-                     </div>
+                        <label className="text-sm font-bold text-zinc-700">Jabatan / Posisi</label>
+                        <input 
+                          type="text" 
+                          value={formData.position || ''}
+                          onChange={e => setFormData({...formData, position: e.target.value})}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                          placeholder="Contoh: Passenger Service"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">Password</label>
+                        <input 
+                          required={!editingId}
+                          type="password" 
+                          value={formData.password || ''}
+                          onChange={e => setFormData({...formData, password: e.target.value})}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                          placeholder="Set Password Login"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-zinc-700">Kode Dinas</label>
+                        <select 
+                          value={formData.shift_code || ''}
+                          onChange={e => {
+                            const code = e.target.value;
+                            const matched = allShifts.find(s => s.code === code);
+                            setFormData({
+                              ...formData,
+                              shift_code: code,
+                              dinasan_start_time: matched ? matched.start_time?.substring(0, 5) : '',
+                              dinasan_end_time: matched ? matched.end_time?.substring(0, 5) : ''
+                            });
+                          }}
+                          className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium bg-white"
+                        >
+                          <option value="">Pilih Kode Dinas</option>
+                          {allShifts.map(s => (
+                            <option key={s.code} value={s.code}>{s.code} - {s.description || ''}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-zinc-700">Jam Dinas Masuk</label>
+                          <input 
+                            type="time" 
+                            value={formData.dinasan_start_time ? formData.dinasan_start_time.substring(0, 5) : ''}
+                            onChange={e => setFormData({...formData, dinasan_start_time: e.target.value})}
+                            className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-bold text-zinc-700">Jam Dinas Pulang</label>
+                          <input 
+                            type="time" 
+                            value={formData.dinasan_end_time ? formData.dinasan_end_time.substring(0, 5) : ''}
+                            onChange={e => setFormData({...formData, dinasan_end_time: e.target.value})}
+                            className="w-full h-12 bg-zinc-50 border border-zinc-200 rounded-xl px-4 text-zinc-800 focus:outline-none focus:border-brand-red transition-all font-medium"
+                          />
+                        </div>
+                      </div>
                      
                      <div className="space-y-2 col-span-2">
                         <label className="text-sm font-bold text-zinc-700 block">Stasiun yang Diizinkan (Base Presensi)</label>
