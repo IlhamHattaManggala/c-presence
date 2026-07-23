@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { FileText, ChevronLeft, Printer, Download } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/client'
-import { markSpecificNotificationAsReadAction } from '@/app/actions/user-actions'
+
 import { useRouter, useSearchParams } from 'next/navigation'
 import { StatusModal } from '@/components/StatusModal'
 
@@ -51,8 +51,22 @@ function SuratDinasLuarContent() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
+        const markAsRead = async (notifId: string) => {
+          const session = (await supabase.auth.getSession()).data.session;
+          const token = session?.access_token;
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+          await fetch(`${backendUrl}/api/notifications/read`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ userId: user.id, notificationId: notifId })
+          });
+        };
+
         if (notificationId) {
-          await markSpecificNotificationAsReadAction(user.id, notificationId)
+          await markAsRead(notificationId)
           return
         }
 
@@ -66,7 +80,7 @@ function SuratDinasLuarContent() {
           .limit(1)
 
         if (notifs && notifs.length > 0) {
-          await markSpecificNotificationAsReadAction(user.id, notifs[0].id)
+          await markAsRead(notifs[0].id)
         }
       } catch (err) {
         console.error('Error marking notifications as read:', err)

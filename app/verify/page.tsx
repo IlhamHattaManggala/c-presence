@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react'
-import { verifyDocumentAction } from '@/app/actions/user-actions'
 
 function VerifyContent() {
   const searchParams = useSearchParams()
@@ -23,7 +22,9 @@ function VerifyContent() {
 
     const verifyDocument = async () => {
       try {
-        const res = await verifyDocumentAction(id)
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const response = await fetch(`${backendUrl}/api/documents/verify/${id}`)
+        const res = await response.json()
         if (!res.success) {
           setError(res.error || 'Dokumen tidak terdaftar atau tanda tangan tidak valid.')
           return

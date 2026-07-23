@@ -6,7 +6,7 @@ import { FileText, Plus, Search, Edit3, Eye, Trash2, X, Download, FileSpreadshee
 import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { bulkImportEmployees } from '@/app/actions/user-actions'
+
 import * as XLSX from 'xlsx'
 
 export default function PendaftaranPegawaiPage() {
@@ -450,7 +450,18 @@ export default function PendaftaranPegawaiPage() {
         role: 'user'
       }))
 
-      const res = await bulkImportEmployees(mappedData)
+      const session = (await supabase.auth.getSession()).data.session
+      const token = session?.access_token
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/admin/users/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ employeesData: mappedData })
+      })
+      const res = await response.json()
 
       if (!res.success) {
         throw new Error(res.error || 'Gagal menyimpan data ke database')

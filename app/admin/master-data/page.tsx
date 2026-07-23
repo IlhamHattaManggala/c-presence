@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { StatusModal } from '@/components/StatusModal'
 import { Map, Marker } from 'pigeon-maps'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { deleteUserAction, createUserAction, updateUserAction } from '@/app/actions/user-actions'
 
 type TabType = 'STASIUN' | 'SHIFT' | 'USER' | 'SOP'
 
@@ -117,7 +116,16 @@ export default function MasterDataPage() {
     let errorMsg = ''
 
     if (activeTab === 'USER') {
-      const res = await deleteUserAction(idToDel as string)
+      const session = (await supabase.auth.getSession()).data.session
+      const token = session?.access_token
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const response = await fetch(`${backendUrl}/api/admin/users/${idToDel}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const res = await response.json()
       if (!res.success) errorMsg = res.error || 'Terjadi kesalahan'
     } else {
       const { error } = await supabase.from(table).delete().eq(pkCol, idToDel)
@@ -196,18 +204,29 @@ export default function MasterDataPage() {
       }
     } else if (editingId) {
       if (activeTab === 'USER') {
-        const actionResult = await updateUserAction(editingId, {
-          email: formData.email,
-          full_name: formData.full_name,
-          nik: formData.nik,
-          role: formData.role || 'user',
-          position: formData.position,
-          password: formData.password,
-          allowed_stations: formData.allowed_stations || [],
-          shift_code: formData.shift_code || null,
-          dinasan_start_time: formData.dinasan_start_time || null,
-          dinasan_end_time: formData.dinasan_end_time || null
+        const session = (await supabase.auth.getSession()).data.session
+        const token = session?.access_token
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const response = await fetch(`${backendUrl}/api/admin/users/${editingId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            full_name: formData.full_name,
+            nik: formData.nik,
+            role: formData.role || 'user',
+            position: formData.position,
+            password: formData.password,
+            allowed_stations: formData.allowed_stations || [],
+            shift_code: formData.shift_code || null,
+            dinasan_start_time: formData.dinasan_start_time || null,
+            dinasan_end_time: formData.dinasan_end_time || null
+          })
         })
+        const actionResult = await response.json()
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal memperbarui Pengguna: ' + actionResult.error })
           return
@@ -218,18 +237,29 @@ export default function MasterDataPage() {
       }
     } else {
       if (activeTab === 'USER') {
-        const actionResult = await createUserAction({
-          email: formData.email,
-          password: formData.password,
-          full_name: formData.full_name,
-          nik: formData.nik,
-          role: formData.role || 'user',
-          position: formData.position,
-          allowed_stations: formData.allowed_stations || [],
-          shift_code: formData.shift_code || null,
-          dinasan_start_time: formData.dinasan_start_time || null,
-          dinasan_end_time: formData.dinasan_end_time || null
+        const session = (await supabase.auth.getSession()).data.session
+        const token = session?.access_token
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const response = await fetch(`${backendUrl}/api/admin/users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            full_name: formData.full_name,
+            nik: formData.nik,
+            role: formData.role || 'user',
+            position: formData.position,
+            allowed_stations: formData.allowed_stations || [],
+            shift_code: formData.shift_code || null,
+            dinasan_start_time: formData.dinasan_start_time || null,
+            dinasan_end_time: formData.dinasan_end_time || null
+          })
         })
+        const actionResult = await response.json()
         if (!actionResult.success) {
           setModal({ isOpen: true, status: 'error', message: 'Gagal meregistrasi Pengguna: ' + actionResult.error })
           return
