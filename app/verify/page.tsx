@@ -22,7 +22,8 @@ function VerifyContent() {
 
     const verifyDocument = async () => {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const rawBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const backendUrl = rawBackendUrl.replace(/\/$/, '')
         const response = await fetch(`${backendUrl}/api/documents/verify/${id}`)
         const res = await response.json()
         if (!res.success) {

@@ -51,7 +51,8 @@ function SuratIzinContent() {
         const markAsRead = async (notifId: string) => {
           const session = (await supabase.auth.getSession()).data.session;
           const token = session?.access_token;
-          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+          const rawBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+          const backendUrl = rawBackendUrl.replace(/\/$/, '');
           await fetch(`${backendUrl}/api/notifications/read`, {
             method: 'POST',
             headers: {

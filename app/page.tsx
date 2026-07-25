@@ -8,13 +8,14 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    // Memberikan waktu sedikit agar user bisa melihat logo splash
+    console.log('Splash screen mounted, setting redirect timer...')
     const timer = setTimeout(() => {
-      router.push('/users/login')
+      console.log('Redirecting to /users/login...')
+      window.location.href = '/users/login'
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [router])
+  }, [])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-brand-red">

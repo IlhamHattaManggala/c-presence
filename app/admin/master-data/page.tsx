@@ -118,7 +118,8 @@ export default function MasterDataPage() {
     if (activeTab === 'USER') {
       const session = (await supabase.auth.getSession()).data.session
       const token = session?.access_token
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const rawBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const backendUrl = rawBackendUrl.replace(/\/$/, '')
       const response = await fetch(`${backendUrl}/api/admin/users/${idToDel}`, {
         method: 'DELETE',
         headers: {
@@ -206,7 +207,8 @@ export default function MasterDataPage() {
       if (activeTab === 'USER') {
         const session = (await supabase.auth.getSession()).data.session
         const token = session?.access_token
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const rawBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const backendUrl = rawBackendUrl.replace(/\/$/, '')
         const response = await fetch(`${backendUrl}/api/admin/users/${editingId}`, {
           method: 'PUT',
           headers: {
@@ -239,7 +241,8 @@ export default function MasterDataPage() {
       if (activeTab === 'USER') {
         const session = (await supabase.auth.getSession()).data.session
         const token = session?.access_token
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const rawBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+        const backendUrl = rawBackendUrl.replace(/\/$/, '')
         const response = await fetch(`${backendUrl}/api/admin/users`, {
           method: 'POST',
           headers: {
